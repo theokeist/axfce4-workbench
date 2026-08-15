@@ -1,0 +1,13 @@
+[Xfce Panel]
+Type=X-XFCE-PanelPlugin
+Name=MorphOS Workbench
+Name[en]=MorphOS Workbench
+Name[cs]=MorphOS Workbench
+Comment=MorphOS Ambient style top bar / workbench for XFCE
+Comment[en]=MorphOS Ambient style top bar / workbench for XFCE
+Comment[cs]=Lišta top baru ve stylu MorphOS Ambient / workbench pro XFCE
+Icon=ambient-logo
+X-XFCE-Module=morphos-workbench
+X-XFCE-Internal=FALSE
+X-XFCE-API=2.0
+X-XFCE-Bugzilla=https://github.com/Axis0S/xfce4-morphos-workbench/issues

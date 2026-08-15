@@ -1,0 +1,9 @@
+build/
+*.o
+*.so
+*.a
+*.la
+*.lo
+compile_commands.json
+meson-logs/
+meson-private/
