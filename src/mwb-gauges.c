@@ -378,6 +378,7 @@ mwb_gauge_new(gint kind, const gchar *label_text, MorphosWorkbenchTheme theme,
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_style_context_add_class(gtk_widget_get_style_context(box), "mwb-gaugebox");
+    gtk_widget_set_valign(box, GTK_ALIGN_CENTER);
 
     if (label_text) {
         GtkWidget *lbl = gtk_label_new(label_text);
