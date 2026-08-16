@@ -197,6 +197,7 @@ typedef struct {
     GtkWidget       *notify_button;   /* notification button on screenbar */
     GtkWidget       *notify_icon;     /* notification icon */
     GtkWidget       *notify_badge;    /* unread count badge on screenbar */
+    GtkWidget       *notify_pop_badge;/* header status badge in notification popover */
     GtkWidget       *notify_list_box; /* notification items container */
     GList           *notifications;   /* list of MwbNotification */
     GtkWidget       *calendar;        /* the GtkCalendar itself */

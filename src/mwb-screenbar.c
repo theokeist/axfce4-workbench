@@ -1643,6 +1643,7 @@ mwb_batt_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
         gtk_widget_set_size_request(mwb->batt_popup, 320, -1);
         gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_popup), "mwb-popup");
         gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_popup), "mwb-vol-popup");
+        gtk_widget_set_name(mwb->batt_popup, "mwb-batt-pop");
         mwb_theme_widget(mwb, mwb->batt_popup);
 
         GtkWidget *root_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
@@ -3075,6 +3076,17 @@ mwb_notifications_refresh(MorphosWorkbenchPlugin *mwb)
         g_free(tip);
     }
 
+    if (mwb->notify_pop_badge) {
+        gchar *cnt_str = (count > 0) ? g_strdup_printf(_("%u items"), count) : g_strdup(_("Empty"));
+        gtk_label_set_text(GTK_LABEL(mwb->notify_pop_badge), cnt_str);
+        g_free(cnt_str);
+        GtkStyleContext *sc_b = gtk_widget_get_style_context(mwb->notify_pop_badge);
+        if (count > 0)
+            gtk_style_context_add_class(sc_b, "mwb-badge-playing");
+        else
+            gtk_style_context_remove_class(sc_b, "mwb-badge-playing");
+    }
+
     if (!mwb->notify_list_box)
         return;
 
@@ -3114,15 +3126,16 @@ mwb_notifications_refresh(MorphosWorkbenchPlugin *mwb)
     for (l = mwb->notifications; l != NULL; l = l->next) {
         MwbNotification *n = l->data;
 
-        GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+        GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
         gtk_style_context_add_class(gtk_widget_get_style_context(card), "mwb-vol-card");
         gtk_style_context_add_class(gtk_widget_get_style_context(card), "mwb-notify-card");
+        gtk_container_set_border_width(GTK_CONTAINER(card), 8);
 
         /* Top header row: App Icon, App Name, Time ago, Dismiss button */
         GtkWidget *top_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
         const gchar *icon_name = mwb_resolve_notification_icon(n->app_name, n->icon_name);
         GtkWidget *icon = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_MENU);
-        gtk_image_set_pixel_size(GTK_IMAGE(icon), 20);
+        gtk_image_set_pixel_size(GTK_IMAGE(icon), 18);
         gtk_box_pack_start(GTK_BOX(top_row), icon, FALSE, FALSE, 0);
 
         GtkWidget *app_lbl = gtk_label_new(n->app_name ? n->app_name : _("System"));
@@ -3137,6 +3150,7 @@ mwb_notifications_refresh(MorphosWorkbenchPlugin *mwb)
         gtk_box_pack_start(GTK_BOX(top_row), time_lbl, FALSE, FALSE, 0);
 
         GtkWidget *dismiss_btn = gtk_button_new();
+        gtk_button_set_relief(GTK_BUTTON(dismiss_btn), GTK_RELIEF_NONE);
         GtkWidget *close_img = gtk_image_new_from_icon_name("window-close-symbolic", GTK_ICON_SIZE_MENU);
         gtk_image_set_pixel_size(GTK_IMAGE(close_img), 12);
         gtk_container_add(GTK_CONTAINER(dismiss_btn), close_img);
@@ -3296,32 +3310,56 @@ mwb_notify_clicked(GtkWidget *widget G_GNUC_UNUSED, gpointer data)
         g_signal_connect(win, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
         g_signal_connect(win, "destroy", G_CALLBACK(gtk_widget_destroyed), &mwb->notify_popup);
 
-        GtkWidget *root_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-        gtk_container_set_border_width(GTK_CONTAINER(root_box), 12);
+        GtkWidget *root_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+        gtk_container_set_border_width(GTK_CONTAINER(root_box), 10);
         gtk_container_add(GTK_CONTAINER(win), root_box);
 
-        /* Header Card */
-        GtkWidget *head_card = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-        gtk_style_context_add_class(gtk_widget_get_style_context(head_card), "mwb-vol-card");
-        gtk_widget_set_margin_bottom(head_card, 2);
-
+        /* Header: Icon + Title + State Badge + Small Clear All Button + Small Settings Button */
+        GtkWidget *hdr = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
         GtkWidget *bell_img = gtk_image_new_from_icon_name("notification-symbolic", GTK_ICON_SIZE_MENU);
-        gtk_image_set_pixel_size(GTK_IMAGE(bell_img), 20);
-        gtk_box_pack_start(GTK_BOX(head_card), bell_img, FALSE, FALSE, 0);
+        gtk_image_set_pixel_size(GTK_IMAGE(bell_img), 16);
+        gtk_style_context_add_class(gtk_widget_get_style_context(bell_img), "mwb-pop-icon");
+        gtk_box_pack_start(GTK_BOX(hdr), bell_img, FALSE, FALSE, 0);
 
         GtkWidget *title_lbl = gtk_label_new(_("Notifications"));
-        gtk_style_context_add_class(gtk_widget_get_style_context(title_lbl), "mwb-media-title");
-        gtk_box_pack_start(GTK_BOX(head_card), title_lbl, FALSE, FALSE, 0);
+        gtk_label_set_xalign(GTK_LABEL(title_lbl), 0.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(title_lbl), "mwb-pop-title");
+        gtk_box_pack_start(GTK_BOX(hdr), title_lbl, TRUE, TRUE, 0);
 
-        GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-        gtk_box_pack_start(GTK_BOX(head_card), spacer, TRUE, TRUE, 0);
+        guint count = g_list_length(mwb->notifications);
+        gchar *cnt_str = (count > 0) ? g_strdup_printf(_("%u items"), count) : g_strdup(_("Empty"));
+        mwb->notify_pop_badge = gtk_label_new(cnt_str);
+        g_free(cnt_str);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->notify_pop_badge), "mwb-vol-badge");
+        if (count > 0)
+            gtk_style_context_add_class(gtk_widget_get_style_context(mwb->notify_pop_badge), "mwb-badge-playing");
+        gtk_box_pack_start(GTK_BOX(hdr), mwb->notify_pop_badge, FALSE, FALSE, 0);
 
-        GtkWidget *clear_btn = gtk_button_new_with_label(_("Clear All"));
+        /* Small MorphOS Clear All Button */
+        GtkWidget *clear_btn = gtk_button_new();
+        gtk_button_set_relief(GTK_BUTTON(clear_btn), GTK_RELIEF_NONE);
         gtk_style_context_add_class(gtk_widget_get_style_context(clear_btn), "mwb-media-btn");
+        gtk_style_context_add_class(gtk_widget_get_style_context(clear_btn), "mwb-gear-btn");
+        GtkWidget *clear_img = gtk_image_new_from_icon_name("edit-clear-all-symbolic", GTK_ICON_SIZE_MENU);
+        gtk_image_set_pixel_size(GTK_IMAGE(clear_img), 14);
+        gtk_container_add(GTK_CONTAINER(clear_btn), clear_img);
+        gtk_widget_set_tooltip_text(clear_btn, _("Clear all notifications"));
         g_signal_connect(clear_btn, "clicked", G_CALLBACK(mwb_notifications_clear_all), mwb);
-        gtk_box_pack_start(GTK_BOX(head_card), clear_btn, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(hdr), clear_btn, FALSE, FALSE, 0);
 
-        gtk_box_pack_start(GTK_BOX(root_box), head_card, FALSE, FALSE, 0);
+        /* Small MorphOS Settings Button */
+        GtkWidget *settings_btn = gtk_button_new();
+        gtk_button_set_relief(GTK_BUTTON(settings_btn), GTK_RELIEF_NONE);
+        gtk_style_context_add_class(gtk_widget_get_style_context(settings_btn), "mwb-media-btn");
+        gtk_style_context_add_class(gtk_widget_get_style_context(settings_btn), "mwb-gear-btn");
+        GtkWidget *gear_img = gtk_image_new_from_icon_name("preferences-system-symbolic", GTK_ICON_SIZE_MENU);
+        gtk_image_set_pixel_size(GTK_IMAGE(gear_img), 14);
+        gtk_container_add(GTK_CONTAINER(settings_btn), gear_img);
+        gtk_widget_set_tooltip_text(settings_btn, _("Notification Settings..."));
+        g_signal_connect(settings_btn, "clicked", G_CALLBACK(mwb_notifications_launch_settings), mwb);
+        gtk_box_pack_start(GTK_BOX(hdr), settings_btn, FALSE, FALSE, 0);
+
+        gtk_box_pack_start(GTK_BOX(root_box), hdr, FALSE, FALSE, 0);
 
         /* Scrolled notification list */
         GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
@@ -3329,27 +3367,12 @@ mwb_notify_clicked(GtkWidget *widget G_GNUC_UNUSED, gpointer data)
         gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                        GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
         gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scrolled), TRUE);
-        gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scrolled), 120);
-        gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scrolled), 360);
+        gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scrolled), 90);
+        gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scrolled), 380);
 
         mwb->notify_list_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
         gtk_container_add(GTK_CONTAINER(scrolled), mwb->notify_list_box);
         gtk_box_pack_start(GTK_BOX(root_box), scrolled, TRUE, TRUE, 0);
-
-        /* Footer Card */
-        GtkWidget *foot_card = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-        gtk_style_context_add_class(gtk_widget_get_style_context(foot_card), "mwb-vol-card");
-
-        GtkWidget *settings_btn = gtk_button_new_with_label(_("Notification Settings..."));
-        GtkWidget *gear_img = gtk_image_new_from_icon_name("preferences-system-symbolic", GTK_ICON_SIZE_MENU);
-        gtk_image_set_pixel_size(GTK_IMAGE(gear_img), 16);
-        gtk_button_set_image(GTK_BUTTON(settings_btn), gear_img);
-        gtk_button_set_always_show_image(GTK_BUTTON(settings_btn), TRUE);
-        gtk_style_context_add_class(gtk_widget_get_style_context(settings_btn), "mwb-mixer-btn");
-        g_signal_connect(settings_btn, "clicked", G_CALLBACK(mwb_notifications_launch_settings), mwb);
-        gtk_box_pack_start(GTK_BOX(foot_card), settings_btn, TRUE, TRUE, 0);
-
-        gtk_box_pack_start(GTK_BOX(root_box), foot_card, FALSE, FALSE, 0);
 
         mwb->notify_popup = win;
         mwb_theme_widget(mwb, win);
