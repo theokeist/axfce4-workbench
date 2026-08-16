@@ -38,38 +38,20 @@
  *  ------------------------------------------------------------------ */
 
 static void
-mwb_popup_hide(MorphosWorkbenchPlugin *mwb, GtkWidget *win)
+mwb_popup_hide(MorphosWorkbenchPlugin *mwb G_GNUC_UNUSED, GtkWidget *win)
 {
     if (!win || !gtk_widget_get_visible(win))
         return;
 
-    GdkDisplay *display = gtk_widget_get_display(win);
-    GdkSeat *seat = gdk_display_get_default_seat(display);
-    if (seat)
-        gdk_seat_ungrab(seat);
-
-    if (win == mwb->calendar_popup && mwb->calendar_grab) {
-        g_source_remove(mwb->calendar_grab);
-        mwb->calendar_grab = 0;
-    }
-    if (win == mwb->volume_popup && mwb->volume_grab) {
-        g_source_remove(mwb->volume_grab);
-        mwb->volume_grab = 0;
-    }
-    if (win == mwb->batt_popup && mwb->batt_grab) {
-        g_source_remove(mwb->batt_grab);
-        mwb->batt_grab = 0;
-    }
-    if (win == mwb->wifi_popup && mwb->wifi_grab) {
-        g_source_remove(mwb->wifi_grab);
-        mwb->wifi_grab = 0;
-    }
-    if (win == mwb->notify_popup && mwb->notify_grab) {
-        g_source_remove(mwb->notify_grab);
-        mwb->notify_grab = 0;
-    }
-
     gtk_widget_hide(win);
+}
+
+static gboolean
+mwb_popup_focus_out(GtkWidget *widget, GdkEventFocus *event G_GNUC_UNUSED, gpointer data)
+{
+    MorphosWorkbenchPlugin *mwb = data;
+    mwb_popup_hide(mwb, widget);
+    return FALSE;
 }
 
 static gboolean
@@ -102,29 +84,6 @@ mwb_popup_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data)
         return TRUE;
     }
     return FALSE;
-}
-
-static gboolean
-mwb_popup_grab_seat(gpointer data)
-{
-    GtkWidget *win = data;
-    if (!win || !gtk_widget_get_visible(win))
-        return G_SOURCE_REMOVE;
-
-    GdkWindow *gdk_win = gtk_widget_get_window(win);
-    if (!gdk_win)
-        return G_SOURCE_CONTINUE;
-
-    GdkDisplay *display = gtk_widget_get_display(win);
-    GdkSeat *seat = gdk_display_get_default_seat(display);
-    if (seat) {
-        GdkGrabStatus status = gdk_seat_grab(seat, gdk_win,
-                                             GDK_SEAT_CAPABILITY_ALL,
-                                             TRUE, NULL, NULL, NULL, NULL);
-        if (status == GDK_GRAB_SUCCESS)
-            return G_SOURCE_REMOVE;
-    }
-    return G_SOURCE_CONTINUE;
 }
 
 static void
@@ -179,30 +138,6 @@ mwb_popup_show(MorphosWorkbenchPlugin *mwb, GtkWidget *win, GtkWidget *anchor)
         gtk_widget_grab_focus(mwb->calendar);
     else if (win == mwb->volume_popup && mwb->vol_scale)
         gtk_widget_grab_focus(mwb->vol_scale);
-
-    GdkSeat *seat = gdk_display_get_default_seat(display);
-    GdkWindow *gdk_win = gtk_widget_get_window(win);
-    gboolean grabbed = FALSE;
-    if (seat && gdk_win) {
-        GdkGrabStatus status = gdk_seat_grab(seat, gdk_win,
-                                             GDK_SEAT_CAPABILITY_ALL,
-                                             TRUE, NULL, NULL, NULL, NULL);
-        if (status == GDK_GRAB_SUCCESS)
-            grabbed = TRUE;
-    }
-    if (!grabbed) {
-        guint grab_id = g_timeout_add(20, mwb_popup_grab_seat, win);
-        if (win == mwb->calendar_popup)
-            mwb->calendar_grab = grab_id;
-        else if (win == mwb->volume_popup)
-            mwb->volume_grab = grab_id;
-        else if (win == mwb->batt_popup)
-            mwb->batt_grab = grab_id;
-        else if (win == mwb->wifi_popup)
-            mwb->wifi_grab = grab_id;
-        else if (win == mwb->notify_popup)
-            mwb->notify_grab = grab_id;
-    }
 }
 
 /* ------------------------------------------------------------------ *
@@ -321,6 +256,8 @@ mwb_clock_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
 
         g_signal_connect(mwb->calendar_popup, "button-press-event",
                          G_CALLBACK(mwb_popup_button_press), mwb);
+        g_signal_connect(mwb->calendar_popup, "focus-out-event",
+                         G_CALLBACK(mwb_popup_focus_out), mwb);
         g_signal_connect(mwb->calendar_popup, "key-press-event",
                          G_CALLBACK(mwb_popup_key_press), mwb);
         g_signal_connect(mwb->calendar_popup, "destroy",
@@ -1414,6 +1351,8 @@ mwb_volume_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
                          G_CALLBACK(mwb_mic_changed), mwb);
         g_signal_connect(mwb->volume_popup, "button-press-event",
                          G_CALLBACK(mwb_popup_button_press), mwb);
+        g_signal_connect(mwb->volume_popup, "focus-out-event",
+                         G_CALLBACK(mwb_popup_focus_out), mwb);
         g_signal_connect(mwb->volume_popup, "key-press-event",
                          G_CALLBACK(mwb_popup_key_press), mwb);
         g_signal_connect(mwb->volume_popup, "destroy",
@@ -1577,6 +1516,8 @@ mwb_batt_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
 
         g_signal_connect(mwb->batt_popup, "button-press-event",
                          G_CALLBACK(mwb_popup_button_press), mwb);
+        g_signal_connect(mwb->batt_popup, "focus-out-event",
+                         G_CALLBACK(mwb_popup_focus_out), mwb);
         g_signal_connect(mwb->batt_popup, "key-press-event",
                          G_CALLBACK(mwb_popup_key_press), mwb);
         g_signal_connect(mwb->batt_popup, "destroy",
@@ -1645,20 +1586,19 @@ mwb_wifi_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
         gtk_style_context_add_class(gtk_widget_get_style_context(card1), "mwb-vol-card");
         gtk_container_set_border_width(GTK_CONTAINER(card1), 10);
 
-        /* Check active Wi-Fi connection */
+        /* Fast, non-blocking check of network state */
         gchar *conn_name = NULL;
-        gchar *cmd_out = NULL;
-        if (g_spawn_command_line_sync("nmcli -t -f ACTIVE,SSID dev wifi", &cmd_out, NULL, NULL, NULL) && cmd_out) {
-            gchar **lines = g_strsplit(cmd_out, "\n", -1);
-            for (guint i = 0; lines[i]; i++) {
-                if (g_str_has_prefix(lines[i], "yes:")) {
-                    conn_name = g_strdup(lines[i] + 4);
-                    break;
-                }
+        if (g_file_test("/sys/class/net/wlan0/operstate", G_FILE_TEST_EXISTS)) {
+            gchar *state = NULL;
+            if (g_file_get_contents("/sys/class/net/wlan0/operstate", &state, NULL, NULL) && state) {
+                g_strstrip(state);
+                if (g_ascii_strcasecmp(state, "up") == 0)
+                    conn_name = g_strdup(_("Wi-Fi Connected"));
+                g_free(state);
             }
-            g_strfreev(lines);
-            g_free(cmd_out);
         }
+        if (!conn_name)
+            conn_name = g_strdup(_("Network Connected"));
 
         GtkWidget *row1 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
         GtkWidget *ssid_lbl = gtk_label_new(conn_name ? conn_name : _("Active Connection"));
@@ -1685,6 +1625,8 @@ mwb_wifi_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
 
         g_signal_connect(mwb->wifi_popup, "button-press-event",
                          G_CALLBACK(mwb_popup_button_press), mwb);
+        g_signal_connect(mwb->wifi_popup, "focus-out-event",
+                         G_CALLBACK(mwb_popup_focus_out), mwb);
         g_signal_connect(mwb->wifi_popup, "key-press-event",
                          G_CALLBACK(mwb_popup_key_press), mwb);
         g_signal_connect(mwb->wifi_popup, "destroy",
@@ -2956,6 +2898,7 @@ mwb_notify_clicked(GtkWidget *widget G_GNUC_UNUSED, gpointer data)
         gtk_widget_set_name(win, "mwb-notify-pop");
 
         g_signal_connect(win, "button-press-event", G_CALLBACK(mwb_popup_button_press), mwb);
+        g_signal_connect(win, "focus-out-event", G_CALLBACK(mwb_popup_focus_out), mwb);
         g_signal_connect(win, "key-press-event", G_CALLBACK(mwb_popup_key_press), mwb);
         g_signal_connect(win, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
 
