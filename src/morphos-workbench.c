@@ -150,6 +150,7 @@ mwb_build_bar(MorphosWorkbenchPlugin *mwb)
     gtk_style_context_add_class(gtk_widget_get_style_context(logo), "mwb-logo");
     gtk_widget_set_tooltip_text(logo, _("Ambient"));
     GtkWidget *logo_img = gtk_image_new_from_icon_name(mwb_logo_icon_name(mwb->logo_variant), GTK_ICON_SIZE_BUTTON);
+    gtk_image_set_pixel_size(GTK_IMAGE(logo_img), 24);
     if (!gtk_image_get_pixbuf(GTK_IMAGE(logo_img)))
         gtk_image_set_from_icon_name(GTK_IMAGE(logo_img), MWB_FALLBACK_ICON, GTK_ICON_SIZE_BUTTON);
     gtk_container_add(GTK_CONTAINER(logo), logo_img);
@@ -220,6 +221,9 @@ mwb_construct(XfcePanelPlugin *plugin)
     mwb->theme = MWB_THEME_CLASSIC;
     mwb->logo_variant = MWB_LOGO_CLASSIC;
     mwb->gauge_style = MWB_GAUGE_STYLE_INDUSTRIAL;
+    mwb->icon_size = MWB_ICON_MEDIUM;
+    mwb->menu_opacity = 90;
+    mwb->clear_bar_bg = FALSE;
     mwb->override_theme = TRUE;
     mwb->show_clock = TRUE;
     mwb->show_membar = TRUE;
@@ -231,6 +235,7 @@ mwb_construct(XfcePanelPlugin *plugin)
     mwb->show_wifi = TRUE;
     mwb->show_battery = TRUE;
     mwb->show_sysinfo = TRUE;
+    mwb->show_notifications = TRUE;
     mwb->show_logo = TRUE;
     mwb->show_title = TRUE;
     mwb->show_dynamic_title = FALSE;
@@ -239,14 +244,17 @@ mwb_construct(XfcePanelPlugin *plugin)
     mwb->show_icons_menu = TRUE;
     mwb->show_disk_menu = TRUE;
     mwb->show_applications_menu = TRUE;
+    mwb->show_recent_apps = TRUE;
+    mwb->show_fav_apps = TRUE;
+    mwb->show_all_apps = TRUE;
     mwb->vol_percent = 70;
 
     {
         static const gint default_order[MWB_WIDGET_COUNT] = {
             MWB_WIDGET_DRIVELAMPS, MWB_WIDGET_NETLAMPS, MWB_WIDGET_WIFI,
             MWB_WIDGET_BATTERY, MWB_WIDGET_CPU, MWB_WIDGET_MEM,
-            MWB_WIDGET_DISK, MWB_WIDGET_SYSINFO, MWB_WIDGET_VOLUME,
-            MWB_WIDGET_CLOCK
+            MWB_WIDGET_DISK, MWB_WIDGET_SYSINFO, MWB_WIDGET_NOTIFICATIONS,
+            MWB_WIDGET_VOLUME, MWB_WIDGET_CLOCK
         };
         gint i;
         for (i = 0; i < MWB_WIDGET_COUNT; i++)
@@ -279,6 +287,7 @@ mwb_construct(XfcePanelPlugin *plugin)
     g_signal_connect(plugin, "configure-plugin", G_CALLBACK(mwb_configure_plugin), mwb);
 
     xfce_panel_plugin_menu_show_configure(plugin);
+    xfce_panel_plugin_add_action_widget(plugin, mwb->bar);
     g_object_set_data(G_OBJECT(plugin), "mwb-data", mwb);
 }
 
@@ -307,6 +316,20 @@ mwb_free_data(XfcePanelPlugin *plugin G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb
         g_source_remove(mwb->calendar_grab);
     if (mwb->volume_grab)
         g_source_remove(mwb->volume_grab);
+    if (mwb->batt_grab)
+        g_source_remove(mwb->batt_grab);
+    if (mwb->wifi_grab)
+        g_source_remove(mwb->wifi_grab);
+    if (mwb->notify_grab)
+        g_source_remove(mwb->notify_grab);
+    if (mwb->notify_poll_id)
+        g_source_remove(mwb->notify_poll_id);
+    if (mwb->vol_debounce_id)
+        g_source_remove(mwb->vol_debounce_id);
+    if (mwb->vol_mic_debounce_id)
+        g_source_remove(mwb->vol_mic_debounce_id);
+
+    mwb->active_button = NULL;
 
     gint i;
     for (i = 0; i < MWB_MENU_COUNT; i++)
@@ -317,6 +340,12 @@ mwb_free_data(XfcePanelPlugin *plugin G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb
         gtk_widget_destroy(mwb->calendar_popup);
     if (mwb->volume_popup)
         gtk_widget_destroy(mwb->volume_popup);
+    if (mwb->batt_popup)
+        gtk_widget_destroy(mwb->batt_popup);
+    if (mwb->wifi_popup)
+        gtk_widget_destroy(mwb->wifi_popup);
+    if (mwb->notify_popup)
+        gtk_widget_destroy(mwb->notify_popup);
 
     if (mwb->bar)
         gtk_widget_destroy(mwb->bar);
@@ -327,6 +356,10 @@ mwb_free_data(XfcePanelPlugin *plugin G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb
     mwb_recent_clear(mwb);
     mwb_tracked_launches_clear(mwb);
     mwb_apps_free(mwb->installed_apps);
+    g_list_free_full(mwb->notifications, (GDestroyNotify)g_free);
+    mwb->notifications = NULL;
+    g_free(mwb->vol_playing_bus);
+    g_free(mwb->net_prev_tip);
 
     g_slice_free(MorphosWorkbenchPlugin, mwb);
 }

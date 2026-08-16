@@ -24,6 +24,10 @@ if exo_dep.found()
   morphos_workbench_deps += exo_dep
 endif
 
+if sqlite3_dep.found()
+  morphos_workbench_deps += sqlite3_dep
+endif
+
 # Build the plugin as a shared module
 morphos_workbench_lib = shared_module('morphos-workbench',
   morphos_workbench_sources,

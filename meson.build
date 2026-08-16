@@ -23,6 +23,7 @@ libxfce4panel_dep = dependency('libxfce4panel-2.0', version: '>= 4.16')
 libxfce4ui_dep = dependency('libxfce4ui-2', version: '>= 4.16')
 libxfce4util_dep = dependency('libxfce4util-1.0', version: '>= 4.16')
 exo_dep = dependency('exo-2', version: '>= 4.16', required: false)
+sqlite3_dep = dependency('sqlite3', required: false)
 
 # Create config.h
 config_h = configuration_data()
@@ -31,6 +32,9 @@ config_h.set_quoted('PACKAGE_VERSION', meson.project_version())
 config_h.set_quoted('VERSION', meson.project_version())
 config_h.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 config_h.set('ENABLE_NLS', true)
+if sqlite3_dep.found()
+  config_h.set('HAVE_SQLITE3', 1)
+endif
 
 configure_file(
   output: 'config.h',

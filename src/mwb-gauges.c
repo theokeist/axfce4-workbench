@@ -289,6 +289,8 @@ mwb_gauge_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     h = alloc.height;
     light = (gd->theme == MWB_THEME_LIGHT);
 
+    cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
+
     if (gd->style == MWB_GAUGE_STYLE_3D)
         mwb_gauge_draw_3d(cr, gd, w, h, light);
     else if (gd->style == MWB_GAUGE_STYLE_PLAIN)

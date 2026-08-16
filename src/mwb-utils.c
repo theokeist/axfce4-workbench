@@ -35,7 +35,7 @@ mwb_launch(const gchar *command)
         return;
     gchar *argv[4] = { (gchar *)"sh", (gchar *)"-c", (gchar *)command, NULL };
     g_spawn_async(NULL, argv, NULL,
-                  G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
+                  G_SPAWN_SEARCH_PATH,
                   NULL, NULL, NULL, NULL);
 }
 

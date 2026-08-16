@@ -69,6 +69,7 @@ typedef enum {
     MWB_WIDGET_MEM,
     MWB_WIDGET_DISK,
     MWB_WIDGET_SYSINFO,
+    MWB_WIDGET_NOTIFICATIONS,
     MWB_WIDGET_VOLUME,
     MWB_WIDGET_CLOCK,
     MWB_WIDGET_COUNT
@@ -97,9 +98,27 @@ typedef enum {
     MWB_LOGO_COUNT
 } MorphosWorkbenchLogo;
 
+/* Menu icon size */
+typedef enum {
+    MWB_ICON_SMALL,
+    MWB_ICON_MEDIUM,
+    MWB_ICON_BIG,
+    MWB_ICON_COUNT
+} MorphosWorkbenchIconSize;
+
 /* Recently-used application entry (shown at the top of the Applications menu) */
 #define MWB_RECENT_MAX 3
 #define MWB_RECENT_CYCLES 3
+
+typedef struct {
+    gchar   *id;
+    gchar   *app_name;
+    gchar   *icon_name;
+    gchar   *summary;
+    gchar   *body;
+    gint64   timestamp;
+    gboolean is_read;
+} MwbNotification;
 
 typedef struct {
     gchar *icon;
@@ -124,22 +143,56 @@ typedef struct {
     GModule         *nm_module;       /* dlopen'd xfce4-networkmanager module */
     GtkWidget       *nm_plugin;       /* embedded xfce4-networkmanager widget */
     GtkWidget       *batt_button;     /* battery button */
-    GtkWidget       *batt_icon;       /* battery image */
-    GtkWidget       *batt_label;      /* battery % label */
+    GtkWidget       *batt_icon;       /* battery custom drawing area */
+    GtkWidget       *batt_label;      /* battery percentage label */
+    gint             batt_percent;    /* 0-100 */
+    gboolean         batt_charging;   /* AC connected / charging */
     GtkWidget       *sys_button;      /* system info button */
-    GtkWidget       *vol_button;      /* volume button */
-    GtkWidget       *vol_scale;       /* volume slider in popup */
-    GtkWidget       *vol_icon;        /* volume icon */
-    GtkWidget       *vol_mute_button; /* volume mute toggle in popup */
+    GtkWidget       *vol_button;      /* volume button on screenbar */
+    GtkWidget       *vol_icon;        /* volume icon image */
+    GtkWidget       *vol_scale;       /* main volume scale */
+    GtkWidget       *vol_mute_button; /* volume mute button */
     GtkWidget       *vol_mute_icon;   /* mute button icon */
-    GtkWidget       *vol_percent_label; /* volume % label in popup */
+    GtkWidget       *vol_percent_label; /* volume % label */
+    GtkWidget       *vol_mic_button;  /* microphone mute button */
+    GtkWidget       *vol_mic_icon;    /* mic icon image */
+    GtkWidget       *vol_mic_scale;   /* mic level scale */
+    GtkWidget       *vol_mic_percent_label; /* mic % label */
+    GtkWidget       *vol_playing_card;  /* now-playing media card */
+    GtkWidget       *vol_playing_art;   /* now-playing album art */
+    GtkWidget       *vol_playing_title; /* now-playing title label */
+    GtkWidget       *vol_playing_artist; /* now-playing artist label */
+    GtkWidget       *vol_playing_status; /* now-playing status / player badge */
+    GtkWidget       *vol_playing_controls; /* playback controls container */
+    GtkWidget       *vol_playing_prev_btn; /* previous track button */
+    GtkWidget       *vol_playing_play_btn; /* play/pause button */
+    GtkWidget       *vol_playing_next_btn; /* next track button */
+    GtkWidget       *vol_playing_play_icon; /* play/pause icon */
+    gchar           *vol_playing_bus;   /* current MPRIS player D-Bus destination */
+    GtkWidget       *vol_streams_box;   /* active playback streams container */
     gboolean         vol_muted;       /* mute state */
+    gboolean         vol_mic_muted;   /* microphone mute state */
+    guint            mic_percent;     /* microphone level */
     GtkWidget       *screenbar;       /* right-side screenbar container */
     GtkWidget       *calendar_popup;  /* calendar popup window */
     GtkWidget       *volume_popup;    /* volume popup window */
+    GtkWidget       *batt_popup;      /* battery popup window */
+    GtkWidget       *wifi_popup;      /* wifi/network popup window */
+    GtkWidget       *notify_popup;    /* notification center popup */
+    GtkWidget       *notify_button;   /* notification button on screenbar */
+    GtkWidget       *notify_icon;     /* notification icon */
+    GtkWidget       *notify_badge;    /* unread count badge on screenbar */
+    GtkWidget       *notify_list_box; /* notification items container */
+    GList           *notifications;   /* list of MwbNotification */
     GtkWidget       *calendar;        /* the GtkCalendar itself */
+    GtkWidget       *wifi_button;     /* wifi button on screenbar */
     guint            calendar_grab;   /* seat grab timer id */
     guint            volume_grab;     /* seat grab timer id */
+    guint            batt_grab;       /* seat grab timer id */
+    guint            wifi_grab;       /* seat grab timer id */
+    guint            notify_grab;     /* seat grab timer id */
+    guint            notify_dbus_id;  /* D-Bus signal subscription id */
+    guint            notify_poll_id;  /* notification poll timer id */
     gint64           popup_open_time;
     GtkWidget       *menus[MWB_MENU_COUNT];
     GtkWidget       *menu_buttons[MWB_MENU_COUNT];
@@ -156,9 +209,17 @@ typedef struct {
     guint            sys_timeout;
     guint            title_timeout;
     guint            vol_timeout;
+    guint            vol_debounce_id;
+    guint            vol_mic_debounce_id;
+    gint             net_prev_state[2];
+    gchar           *net_prev_tip;
+    gint             net_tip_ticks;
     MorphosWorkbenchTheme theme;
     MorphosWorkbenchLogo logo_variant;
     gint             gauge_style;   /* MorphosWorkbenchGaugeStyle */
+    gint             icon_size;     /* MorphosWorkbenchIconSize */
+    gint             menu_opacity;  /* 0-100, 100 = opaque menus */
+    gboolean         clear_bar_bg;  /* clear/transparent background for the bar */
     gboolean         override_theme;  /* force Workbench theming on all widgets */
     gboolean         show_clock;
     gboolean         show_membar;
@@ -170,6 +231,7 @@ typedef struct {
     gboolean         show_wifi;
     gboolean         show_battery;
     gboolean         show_sysinfo;
+    gboolean         show_notifications;
     gboolean         show_logo;
     gboolean         show_title;
     gboolean         show_dynamic_title; /* title follows the foreground app */
@@ -178,6 +240,9 @@ typedef struct {
     gboolean         show_icons_menu;
     gboolean         show_disk_menu;
     gboolean         show_applications_menu;
+    gboolean         show_recent_apps;  /* Applications: recently closed */
+    gboolean         show_fav_apps;     /* Applications: hardcoded favorites */
+    gboolean         show_all_apps;     /* Applications: categorized installed */
     guint64          cpu_prev_total;
     guint64          cpu_prev_idle;
     guint64          cpu_prev_core_total[16];
@@ -198,6 +263,7 @@ typedef struct {
 void        mwb_init_css                (void);
 void        mwb_apply_theme             (MorphosWorkbenchPlugin *mwb);
 void        mwb_apply_logo              (MorphosWorkbenchPlugin *mwb);
+void        mwb_apply_menu_opacity      (MorphosWorkbenchPlugin *mwb);
 void        mwb_theme_widget            (MorphosWorkbenchPlugin *mwb,
                                          GtkWidget *widget);
 const gchar *mwb_logo_icon_name         (MorphosWorkbenchLogo variant);
@@ -226,6 +292,8 @@ GtkWidget  *mwb_create_menu_title       (MorphosWorkbenchPlugin *mwb,
 void        mwb_menu_toggle             (GtkButton *button,
                                          MorphosWorkbenchPlugin *mwb);
 void        mwb_create_menus            (MorphosWorkbenchPlugin *mwb);
+void        mwb_rebuild_menus           (MorphosWorkbenchPlugin *mwb);
+void        mwb_set_icon_size           (gint size);
 void        mwb_rebuild_applications_menu (MorphosWorkbenchPlugin *mwb);
 void        mwb_recent_record           (MorphosWorkbenchPlugin *mwb,
                                          const gchar *icon,
@@ -239,6 +307,8 @@ void        mwb_tracked_launches_clear  (MorphosWorkbenchPlugin *mwb);
 void        mwb_build_screenbar         (MorphosWorkbenchPlugin *mwb);
 void        mwb_apply_widget_order      (MorphosWorkbenchPlugin *mwb);
 const gchar *mwb_widget_name            (guint widget);
+void        mwb_notifications_refresh   (MorphosWorkbenchPlugin *mwb);
+void        mwb_notification_free       (MwbNotification *n);
 
 /* config.c */
 void        mwb_save_config             (XfcePanelPlugin *plugin,

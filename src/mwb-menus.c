@@ -27,6 +27,58 @@
  *  Menu item helper (icon + label, Ambient style)
  *  ------------------------------------------------------------------ */
 
+static gint mwb_menu_icon_px = 24;
+
+void
+mwb_set_icon_size(gint size)
+{
+    static const gint px[MWB_ICON_COUNT] = { 16, 24, 32 };
+    if (size < 0)
+        size = 0;
+    if (size >= MWB_ICON_COUNT)
+        size = MWB_ICON_COUNT - 1;
+    mwb_menu_icon_px = px[size];
+}
+
+static void
+mwb_menu_toplevel_setup(GtkWidget *menu, gpointer user_data G_GNUC_UNUSED)
+{
+    GtkWidget *toplevel = gtk_widget_get_toplevel(menu);
+    if (toplevel && GTK_IS_WINDOW(toplevel)) {
+        GdkScreen *screen = gtk_widget_get_screen(toplevel);
+        GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+        if (visual) {
+            gtk_widget_set_visual(toplevel, visual);
+            gtk_widget_set_app_paintable(toplevel, TRUE);
+        }
+    }
+}
+
+static GtkWidget *
+mwb_menu_new(void)
+{
+    GtkWidget *menu = gtk_menu_new();
+    GdkScreen *screen = gdk_screen_get_default();
+    GdkVisual *visual = screen ? gdk_screen_get_rgba_visual(screen) : NULL;
+
+    if (visual != NULL) {
+        gtk_widget_set_visual(menu, visual);
+        gtk_widget_set_app_paintable(menu, TRUE);
+    }
+
+    g_signal_connect(menu, "realize", G_CALLBACK(mwb_menu_toplevel_setup), NULL);
+    g_signal_connect(menu, "show", G_CALLBACK(mwb_menu_toplevel_setup), NULL);
+
+    GtkWidget *toplevel = gtk_widget_get_toplevel(menu);
+    if (toplevel && GTK_IS_WINDOW(toplevel) && visual != NULL) {
+        gtk_widget_set_visual(toplevel, visual);
+        gtk_widget_set_app_paintable(toplevel, TRUE);
+    }
+
+    gtk_style_context_add_class(gtk_widget_get_style_context(menu), "mwb-menu");
+    return menu;
+}
+
 static GtkWidget *
 mwb_create_menu_item(const gchar *icon_name, const gchar *label_text)
 {
@@ -36,7 +88,7 @@ mwb_create_menu_item(const gchar *icon_name, const gchar *label_text)
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     if (icon_name) {
         GtkWidget *img = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_MENU);
-        gtk_image_set_pixel_size(GTK_IMAGE(img), 16);
+        gtk_image_set_pixel_size(GTK_IMAGE(img), mwb_menu_icon_px);
         gtk_box_pack_start(GTK_BOX(box), img, FALSE, FALSE, 0);
     }
     GtkWidget *lbl = gtk_label_new(label_text);
@@ -108,6 +160,16 @@ mwb_menu_toggle(GtkButton *button, MorphosWorkbenchPlugin *mwb)
         menu = mwb->menus[i];
     }
 
+    /* ensure toplevel window has RGBA visual and app-paintable */
+    GtkWidget *toplevel = gtk_widget_get_toplevel(menu);
+    if (toplevel && GTK_IS_WINDOW(toplevel)) {
+        GdkScreen *screen = gtk_widget_get_screen(toplevel);
+        GdkVisual *visual = screen ? gdk_screen_get_rgba_visual(screen) : NULL;
+        if (visual && !gtk_widget_get_realized(toplevel))
+            gtk_widget_set_visual(toplevel, visual);
+        gtk_widget_set_app_paintable(toplevel, TRUE);
+    }
+
     gtk_menu_popup_at_widget(GTK_MENU(menu), GTK_WIDGET(button),
                              GDK_GRAVITY_SOUTH_WEST, GDK_GRAVITY_NORTH_WEST, NULL);
     mwb->active_button = GTK_WIDGET(button);
@@ -126,7 +188,7 @@ static GtkWidget *mwb_create_app_item(MorphosWorkbenchPlugin *mwb,
 static GtkWidget *
 mwb_build_ambient_menu(MorphosWorkbenchPlugin *mwb)
 {
-    GtkWidget *menu = gtk_menu_new();
+    GtkWidget *menu = mwb_menu_new();
     gtk_style_context_add_class(gtk_widget_get_style_context(menu), "mwb-menu");
 
     GtkWidget *item;
@@ -174,7 +236,7 @@ mwb_build_ambient_menu(MorphosWorkbenchPlugin *mwb)
 static GtkWidget *
 mwb_build_workbench_menu(MorphosWorkbenchPlugin *mwb)
 {
-    GtkWidget *menu = gtk_menu_new();
+    GtkWidget *menu = mwb_menu_new();
     gtk_style_context_add_class(gtk_widget_get_style_context(menu), "mwb-menu");
 
     GtkWidget *item;
@@ -215,7 +277,7 @@ mwb_build_workbench_menu(MorphosWorkbenchPlugin *mwb)
 static GtkWidget *
 mwb_build_ambient_menu_menu(MorphosWorkbenchPlugin *mwb)
 {
-    GtkWidget *menu = gtk_menu_new();
+    GtkWidget *menu = mwb_menu_new();
     gtk_style_context_add_class(gtk_widget_get_style_context(menu), "mwb-menu");
 
     GtkWidget *item;
@@ -273,7 +335,7 @@ mwb_build_ambient_menu_menu(MorphosWorkbenchPlugin *mwb)
 static GtkWidget *
 mwb_build_icons_menu(MorphosWorkbenchPlugin *mwb G_GNUC_UNUSED)
 {
-    GtkWidget *menu = gtk_menu_new();
+    GtkWidget *menu = mwb_menu_new();
     gtk_style_context_add_class(gtk_widget_get_style_context(menu), "mwb-menu");
 
     GtkWidget *item;
@@ -325,7 +387,7 @@ mwb_build_icons_menu(MorphosWorkbenchPlugin *mwb G_GNUC_UNUSED)
 static GtkWidget *
 mwb_build_disk_menu(MorphosWorkbenchPlugin *mwb)
 {
-    GtkWidget *menu = gtk_menu_new();
+    GtkWidget *menu = mwb_menu_new();
     gtk_style_context_add_class(gtk_widget_get_style_context(menu), "mwb-menu");
 
     GtkWidget *item;
@@ -448,48 +510,85 @@ mwb_create_app_item(MorphosWorkbenchPlugin *mwb, const gchar *icon,
 static GtkWidget *
 mwb_build_applications_menu(MorphosWorkbenchPlugin *mwb)
 {
-    GtkWidget *menu = gtk_menu_new();
+    GtkWidget *menu = mwb_menu_new();
     gtk_style_context_add_class(gtk_widget_get_style_context(menu), "mwb-menu");
 
     GtkWidget *item;
+    gboolean has_items = FALSE;
 
     /* recently closed apps on top, separated by a divider */
-    if (mwb->recent_apps) {
+    if (mwb->recent_apps && mwb->show_recent_apps) {
         GList *l;
         for (l = mwb->recent_apps; l; l = l->next) {
             MwbRecentApp *app = l->data;
             item = mwb_create_app_item(mwb, app->icon, app->label, app->cmd);
             gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+            has_items = TRUE;
         }
-        item = gtk_separator_menu_item_new();
-        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+        if (mwb->show_fav_apps || mwb->show_all_apps) {
+            item = gtk_separator_menu_item_new();
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+        }
+    }
+
+    /* hardcoded favorite applications */
+    if (mwb->show_fav_apps) {
+        struct { const gchar *icon; const gchar *label; const gchar *cmd; } apps[] = {
+            { "utilities-terminal",      N_("Terminal"),        "exo-open --launch TerminalEmulator" },
+            { "system-file-manager",     N_("File Manager"),    "exo-open --launch FileManager" },
+            { "applications-internet",   N_("Web Browser"),     "exo-open --launch WebBrowser" },
+            { "applications-multimedia", N_("Multimedia"),      "exo-open --launch Multimedia" },
+            { "applications-graphics",   N_("Graphics"),        "exo-open --launch Graphics" },
+            { "applications-office",     N_("Office"),          "exo-open --launch Office" },
+            { "applications-science",    N_("Education"),       "exo-open --launch Education" },
+            { "applications-system",     N_("System Tools"),    "exo-open --launch SystemTools" },
+        };
+        guint i;
+        for (i = 0; i < G_N_ELEMENTS(apps); i++) {
+            item = mwb_create_app_item(mwb, apps[i].icon, _(apps[i].label), apps[i].cmd);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+            has_items = TRUE;
+        }
+        if (mwb->show_all_apps) {
+            item = gtk_separator_menu_item_new();
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+        }
     }
 
     /* all installed applications, grouped into category submenus */
-    if (mwb->installed_apps == NULL)
-        mwb->installed_apps = mwb_apps_scan();
+    if (mwb->show_all_apps) {
+        if (mwb->installed_apps == NULL)
+            mwb->installed_apps = mwb_apps_scan();
 
-    {
-        GtkWidget *submenu = NULL;
-        GtkWidget *sub_item = NULL;
-        guint cur_cat = G_MAXUINT;
-        GList *l;
+        if (mwb->installed_apps) {
+            GtkWidget *submenu = NULL;
+            GtkWidget *sub_item = NULL;
+            guint cur_cat = G_MAXUINT;
+            GList *l;
 
-        for (l = mwb->installed_apps; l; l = l->next) {
-            MwbDesktopApp *app = l->data;
+            for (l = mwb->installed_apps; l; l = l->next) {
+                MwbDesktopApp *app = l->data;
 
-            if (app->category != cur_cat) {
-                cur_cat = app->category;
-                sub_item = gtk_menu_item_new_with_label(_(mwb_app_category_label(cur_cat)));
-                submenu = gtk_menu_new();
-                gtk_style_context_add_class(gtk_widget_get_style_context(submenu), "mwb-menu");
-                gtk_menu_item_set_submenu(GTK_MENU_ITEM(sub_item), submenu);
-                gtk_menu_shell_append(GTK_MENU_SHELL(menu), sub_item);
+                if (app->category != cur_cat) {
+                    cur_cat = app->category;
+                    sub_item = gtk_menu_item_new_with_label(_(mwb_app_category_label(cur_cat)));
+                    submenu = mwb_menu_new();
+                    gtk_style_context_add_class(gtk_widget_get_style_context(submenu), "mwb-menu");
+                    gtk_menu_item_set_submenu(GTK_MENU_ITEM(sub_item), submenu);
+                    gtk_menu_shell_append(GTK_MENU_SHELL(menu), sub_item);
+                    has_items = TRUE;
+                }
+
+                item = mwb_create_app_item(mwb, app->icon, app->name, app->exec);
+                gtk_menu_shell_append(GTK_MENU_SHELL(submenu), item);
             }
-
-            item = mwb_create_app_item(mwb, app->icon, app->name, app->exec);
-            gtk_menu_shell_append(GTK_MENU_SHELL(submenu), item);
         }
+    }
+
+    if (!has_items) {
+        item = gtk_menu_item_new_with_label(_("(No application sources selected in Settings)"));
+        gtk_widget_set_sensitive(item, FALSE);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
     }
 
     gtk_widget_show_all(menu);
@@ -501,12 +600,13 @@ mwb_rebuild_applications_menu(MorphosWorkbenchPlugin *mwb)
 {
     mwb_recent_tick(mwb);
 
-    if (mwb->menus[MWB_MENU_APPLICATIONS])
-        gtk_widget_destroy(mwb->menus[MWB_MENU_APPLICATIONS]);
-
+    GtkWidget *old_menu = mwb->menus[MWB_MENU_APPLICATIONS];
     mwb->menus[MWB_MENU_APPLICATIONS] = mwb_build_applications_menu(mwb);
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->menus[MWB_MENU_APPLICATIONS]), "mwb-menu-applications");
     mwb_theme_widget(mwb, mwb->menus[MWB_MENU_APPLICATIONS]);
+
+    if (old_menu)
+        gtk_widget_destroy(old_menu);
 }
 
 void
@@ -538,4 +638,16 @@ mwb_create_menus(MorphosWorkbenchPlugin *mwb)
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->menus[MWB_MENU_ICONS]), "mwb-menu-icons");
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->menus[MWB_MENU_DISK]), "mwb-menu-disk");
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->menus[MWB_MENU_APPLICATIONS]), "mwb-menu-applications");
+}
+
+void
+mwb_rebuild_menus(MorphosWorkbenchPlugin *mwb)
+{
+    gint i;
+    for (i = 0; i < MWB_MENU_COUNT; i++) {
+        if (mwb->menus[i])
+            gtk_widget_destroy(mwb->menus[i]);
+    }
+    mwb_create_menus(mwb);
+    mwb_apply_theme(mwb);
 }
