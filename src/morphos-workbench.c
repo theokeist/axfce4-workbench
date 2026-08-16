@@ -21,6 +21,103 @@
 #endif
 
 #include "morphos-workbench.h"
+#include "mwb-apps.h"
+
+#ifdef GDK_WINDOWING_X11
+#include <gdk/gdkx.h>
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#endif
+
+/* ------------------------------------------------------------------ *
+ *  Dynamic Workbench title (foreground window, X11 EWMH)
+ *  ------------------------------------------------------------------ */
+
+#ifdef GDK_WINDOWING_X11
+static gchar *
+mwb_get_active_window_title(void)
+{
+    Display *dpy = gdk_x11_get_default_xdisplay();
+    Window root, active = None;
+    Atom net_active, net_name, utf8;
+    gchar *title = NULL;
+
+    if (!dpy)
+        return NULL;
+
+    root = DefaultRootWindow(dpy);
+    net_active = XInternAtom(dpy, "_NET_ACTIVE_WINDOW", True);
+    net_name = XInternAtom(dpy, "_NET_WM_NAME", True);
+    utf8 = XInternAtom(dpy, "UTF8_STRING", True);
+
+    {
+        Atom type;
+        int fmt;
+        unsigned long n, after;
+        unsigned char *data = NULL;
+        if (XGetWindowProperty(dpy, root, net_active, 0, 1, False, XA_WINDOW,
+                               &type, &fmt, &n, &after, &data) == Success && data) {
+            active = *(Window *)data;
+            XFree(data);
+        }
+    }
+    if (active == None)
+        return NULL;
+
+    {
+        Atom type;
+        int fmt;
+        unsigned long n, after;
+        unsigned char *data = NULL;
+        if (XGetWindowProperty(dpy, active, net_name, 0, 1024, False, utf8,
+                               &type, &fmt, &n, &after, &data) == Success && data) {
+            title = g_strdup((const gchar *)data);
+            XFree(data);
+            return title;
+        }
+    }
+
+    {
+        XTextProperty tp;
+        if (XGetWMName(dpy, active, &tp) && tp.value) {
+            title = g_strdup((const gchar *)tp.value);
+            XFree(tp.value);
+        }
+    }
+    return title;
+}
+#endif
+
+void
+mwb_update_title(MorphosWorkbenchPlugin *mwb)
+{
+    gchar *title = NULL;
+
+    if (!mwb->title)
+        return;
+
+    if (mwb->show_dynamic_title) {
+#ifdef GDK_WINDOWING_X11
+        title = mwb_get_active_window_title();
+#endif
+    }
+
+    if (title && *title) {
+        gtk_label_set_text(GTK_LABEL(mwb->title), title);
+        gtk_widget_set_tooltip_text(mwb->title, title);
+    } else {
+        gtk_label_set_text(GTK_LABEL(mwb->title), _("Workbench"));
+        gtk_widget_set_tooltip_text(mwb->title, NULL);
+    }
+    g_free(title);
+}
+
+static gboolean
+mwb_tick_title(MorphosWorkbenchPlugin *mwb)
+{
+    mwb_update_title(mwb);
+    return G_SOURCE_CONTINUE;
+}
 
 /* Plugin lifecycle (static, file-local) */
 static void     mwb_construct           (XfcePanelPlugin *plugin);
@@ -65,6 +162,8 @@ mwb_build_bar(MorphosWorkbenchPlugin *mwb)
     /* Workbench title */
     mwb->title = gtk_label_new(_("Workbench"));
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->title), "mwb-title");
+    gtk_label_set_ellipsize(GTK_LABEL(mwb->title), PANGO_ELLIPSIZE_END);
+    gtk_label_set_max_width_chars(GTK_LABEL(mwb->title), 40);
     gtk_box_pack_start(GTK_BOX(mwb->bar), mwb->title, FALSE, FALSE, 0);
 
     sep = gtk_separator_new(GTK_ORIENTATION_VERTICAL);
@@ -134,12 +233,25 @@ mwb_construct(XfcePanelPlugin *plugin)
     mwb->show_sysinfo = TRUE;
     mwb->show_logo = TRUE;
     mwb->show_title = TRUE;
+    mwb->show_dynamic_title = FALSE;
     mwb->show_workbench_menu = TRUE;
     mwb->show_ambient_menu = TRUE;
     mwb->show_icons_menu = TRUE;
     mwb->show_disk_menu = TRUE;
     mwb->show_applications_menu = TRUE;
     mwb->vol_percent = 70;
+
+    {
+        static const gint default_order[MWB_WIDGET_COUNT] = {
+            MWB_WIDGET_DRIVELAMPS, MWB_WIDGET_NETLAMPS, MWB_WIDGET_WIFI,
+            MWB_WIDGET_BATTERY, MWB_WIDGET_CPU, MWB_WIDGET_MEM,
+            MWB_WIDGET_DISK, MWB_WIDGET_SYSINFO, MWB_WIDGET_VOLUME,
+            MWB_WIDGET_CLOCK
+        };
+        gint i;
+        for (i = 0; i < MWB_WIDGET_COUNT; i++)
+            mwb->widget_order[i] = default_order[i];
+    }
 
     mwb_init_css();
 
@@ -156,6 +268,9 @@ mwb_construct(XfcePanelPlugin *plugin)
     mwb_build_screenbar(mwb);
 
     mwb_load_config(mwb);
+
+    mwb_tick_title(mwb);
+    mwb->title_timeout = g_timeout_add_seconds(1, (GSourceFunc)mwb_tick_title, mwb);
 
     g_signal_connect(plugin, "free-data", G_CALLBACK(mwb_free_data), mwb);
     g_signal_connect(plugin, "save", G_CALLBACK(mwb_save_config), mwb);
@@ -184,6 +299,10 @@ mwb_free_data(XfcePanelPlugin *plugin G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb
         g_source_remove(mwb->batt_timeout);
     if (mwb->sys_timeout)
         g_source_remove(mwb->sys_timeout);
+    if (mwb->vol_timeout)
+        g_source_remove(mwb->vol_timeout);
+    if (mwb->title_timeout)
+        g_source_remove(mwb->title_timeout);
     if (mwb->calendar_grab)
         g_source_remove(mwb->calendar_grab);
     if (mwb->volume_grab)
@@ -206,6 +325,8 @@ mwb_free_data(XfcePanelPlugin *plugin G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb
         g_module_close(mwb->nm_module);
 
     mwb_recent_clear(mwb);
+    mwb_tracked_launches_clear(mwb);
+    mwb_apps_free(mwb->installed_apps);
 
     g_slice_free(MorphosWorkbenchPlugin, mwb);
 }

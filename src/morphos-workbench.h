@@ -59,6 +59,21 @@ typedef enum {
     MWB_GAUGE_COUNT
 } MorphosWorkbenchGauge;
 
+/* Screenbar widgets (reorderable) */
+typedef enum {
+    MWB_WIDGET_DRIVELAMPS,
+    MWB_WIDGET_NETLAMPS,
+    MWB_WIDGET_WIFI,
+    MWB_WIDGET_BATTERY,
+    MWB_WIDGET_CPU,
+    MWB_WIDGET_MEM,
+    MWB_WIDGET_DISK,
+    MWB_WIDGET_SYSINFO,
+    MWB_WIDGET_VOLUME,
+    MWB_WIDGET_CLOCK,
+    MWB_WIDGET_COUNT
+} MorphosWorkbenchWidget;
+
 /* Screenbar gauge visual styles */
 typedef enum {
     MWB_GAUGE_STYLE_INDUSTRIAL, /* classic segmented LED blocks */
@@ -83,6 +98,9 @@ typedef enum {
 } MorphosWorkbenchLogo;
 
 /* Recently-used application entry (shown at the top of the Applications menu) */
+#define MWB_RECENT_MAX 3
+#define MWB_RECENT_CYCLES 3
+
 typedef struct {
     gchar *icon;
     gchar *label;
@@ -126,7 +144,9 @@ typedef struct {
     GtkWidget       *menus[MWB_MENU_COUNT];
     GtkWidget       *menu_buttons[MWB_MENU_COUNT];
     GtkWidget       *active_button;   /* currently open menu button */
-    GList           *recent_apps;     /* most-recently-used apps (MRU) */
+    GList           *recent_apps;     /* recently closed apps (MRU) */
+    GList           *tracked_launches; /* pending app-close watches */
+    GList           *installed_apps;   /* cached system application list */
     guint            clock_timeout;
     guint            mem_timeout;
     guint            cpu_timeout;
@@ -134,6 +154,8 @@ typedef struct {
     guint            disk_timeout;
     guint            batt_timeout;
     guint            sys_timeout;
+    guint            title_timeout;
+    guint            vol_timeout;
     MorphosWorkbenchTheme theme;
     MorphosWorkbenchLogo logo_variant;
     gint             gauge_style;   /* MorphosWorkbenchGaugeStyle */
@@ -150,6 +172,7 @@ typedef struct {
     gboolean         show_sysinfo;
     gboolean         show_logo;
     gboolean         show_title;
+    gboolean         show_dynamic_title; /* title follows the foreground app */
     gboolean         show_workbench_menu;
     gboolean         show_ambient_menu;
     gboolean         show_icons_menu;
@@ -167,6 +190,7 @@ typedef struct {
     gint64           net_prev_time;
     guint64          disk_prev_sects[2];
     guint            vol_percent;
+    gint             widget_order[MWB_WIDGET_COUNT]; /* screenbar display order */
 } MorphosWorkbenchPlugin;
 
 /* theme.c */
@@ -179,6 +203,9 @@ const gchar *mwb_logo_icon_name         (MorphosWorkbenchLogo variant);
 
 /* utils.c */
 void        mwb_launch                  (const gchar *command);
+guint       mwb_launch_tracked          (const gchar *command,
+                                         GChildWatchFunc func,
+                                         gpointer data);
 void        mwb_desktop_new_folder      (void);
 GtkWidget  *mwb_screenbar_divider       (void);
 
@@ -199,7 +226,13 @@ void        mwb_menu_toggle             (GtkButton *button,
                                          MorphosWorkbenchPlugin *mwb);
 void        mwb_create_menus            (MorphosWorkbenchPlugin *mwb);
 void        mwb_rebuild_applications_menu (MorphosWorkbenchPlugin *mwb);
+void        mwb_recent_record           (MorphosWorkbenchPlugin *mwb,
+                                         const gchar *icon,
+                                         const gchar *label,
+                                         const gchar *cmd);
+void        mwb_recent_tick             (MorphosWorkbenchPlugin *mwb);
 void        mwb_recent_clear            (MorphosWorkbenchPlugin *mwb);
+void        mwb_tracked_launches_clear  (MorphosWorkbenchPlugin *mwb);
 
 /* screenbar.c */
 void        mwb_build_screenbar         (MorphosWorkbenchPlugin *mwb);
@@ -214,6 +247,7 @@ void        mwb_configure_plugin        (XfcePanelPlugin *plugin,
 /* bar (morphos-workbench.c) */
 void        mwb_build_bar               (MorphosWorkbenchPlugin *mwb);
 void        mwb_apply_left_visibility   (MorphosWorkbenchPlugin *mwb);
+void        mwb_update_title            (MorphosWorkbenchPlugin *mwb);
 
 G_END_DECLS
 

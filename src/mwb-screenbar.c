@@ -183,20 +183,16 @@ mwb_clock_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
     mwb_popup_show(mwb, mwb->calendar_popup, mwb->clock_button);
 }
 
-static gboolean
-mwb_volume_get_percent(MorphosWorkbenchPlugin *mwb)
+static void mwb_volume_icon_update(MorphosWorkbenchPlugin *mwb);
+
+static void
+mwb_volume_parse_percent(MorphosWorkbenchPlugin *mwb, const gchar *out)
 {
-    gchar *out = NULL;
     guint sum = 0, n = 0;
-    gchar *p, *q;
+    const gchar *p;
 
-    if (!g_spawn_command_line_sync("pactl get-sink-volume @DEFAULT_SINK@",
-                                   &out, NULL, NULL, NULL) || !out)
-        return FALSE;
-
-    /* average every channel percentage ("... / 86% / ...") in the output */
     for (p = out; (p = strchr(p, '%')) != NULL; p++) {
-        q = p;
+        const gchar *q = p;
         while (q > out && g_ascii_isdigit(*(q - 1)))
             q--;
         if (q < p) {
@@ -204,27 +200,72 @@ mwb_volume_get_percent(MorphosWorkbenchPlugin *mwb)
             n++;
         }
     }
-    g_free(out);
+    if (n > 0)
+        mwb->vol_percent = MIN(sum / n, 100u);
+}
 
-    if (n == 0)
-        return FALSE;
+static void
+mwb_volume_percent_cb(GObject *src, GAsyncResult *res, gpointer data)
+{
+    MorphosWorkbenchPlugin *mwb = data;
+    GError *err = NULL;
+    gchar *out = NULL;
 
-    mwb->vol_percent = MIN(sum / n, 100u);
-    return TRUE;
+    if (g_subprocess_communicate_utf8_finish(G_SUBPROCESS(src), res, &out, NULL, &err) && out) {
+        mwb_volume_parse_percent(mwb, out);
+        mwb_volume_icon_update(mwb);
+        g_free(out);
+    }
+    if (err)
+        g_error_free(err);
+    g_object_unref(src);
+}
+
+static void
+mwb_volume_mute_cb(GObject *src, GAsyncResult *res, gpointer data)
+{
+    MorphosWorkbenchPlugin *mwb = data;
+    GError *err = NULL;
+    gchar *out = NULL;
+
+    if (g_subprocess_communicate_utf8_finish(G_SUBPROCESS(src), res, &out, NULL, &err) && out) {
+        mwb->vol_muted = (strstr(out, "yes") != NULL);
+        mwb_volume_icon_update(mwb);
+        g_free(out);
+    }
+    if (err)
+        g_error_free(err);
+    g_object_unref(src);
+}
+
+static void
+mwb_volume_refresh(MorphosWorkbenchPlugin *mwb)
+{
+    GError *err = NULL;
+    GSubprocess *proc;
+
+    proc = g_subprocess_new(G_SUBPROCESS_FLAGS_STDOUT_PIPE, &err,
+                            "pactl", "get-sink-volume", "@DEFAULT_SINK@", NULL);
+    if (proc)
+        g_subprocess_communicate_utf8_async(proc, NULL, NULL, mwb_volume_percent_cb, mwb);
+    else if (err) {
+        g_error_free(err);
+        err = NULL;
+    }
+
+    proc = g_subprocess_new(G_SUBPROCESS_FLAGS_STDOUT_PIPE, &err,
+                            "pactl", "get-sink-mute", "@DEFAULT_SINK@", NULL);
+    if (proc)
+        g_subprocess_communicate_utf8_async(proc, NULL, NULL, mwb_volume_mute_cb, mwb);
+    else if (err)
+        g_error_free(err);
 }
 
 static gboolean
-mwb_volume_get_muted(MorphosWorkbenchPlugin *mwb)
+mwb_tick_volume(MorphosWorkbenchPlugin *mwb)
 {
-    gchar *out = NULL;
-
-    if (!g_spawn_command_line_sync("pactl get-sink-mute @DEFAULT_SINK@",
-                                   &out, NULL, NULL, NULL) || !out)
-        return FALSE;
-
-    mwb->vol_muted = (strstr(out, "yes") != NULL);
-    g_free(out);
-    return TRUE;
+    mwb_volume_refresh(mwb);
+    return G_SOURCE_CONTINUE;
 }
 
 static void
@@ -339,14 +380,15 @@ mwb_volume_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
                          G_CALLBACK(gtk_widget_destroyed), &mwb->volume_popup);
     }
 
-    mwb_volume_get_percent(mwb);
-    mwb_volume_get_muted(mwb);
     g_signal_handlers_block_by_func(mwb->vol_scale, mwb_volume_changed, mwb);
     gtk_range_set_value(GTK_RANGE(mwb->vol_scale), mwb->vol_percent);
     g_signal_handlers_unblock_by_func(mwb->vol_scale, mwb_volume_changed, mwb);
     mwb_volume_icon_update(mwb);
 
     mwb_popup_show(mwb, mwb->volume_popup, mwb->vol_button);
+
+    /* refresh asynchronously so the popup opens instantly */
+    mwb_volume_refresh(mwb);
 }
 
 /* Wifi part — embed the xfce4-networkmanager panel plugin widget. */
@@ -815,9 +857,112 @@ mwb_lamp_new(const gchar *tooltip, const gchar *kind_class)
     return lamp;
 }
 
-/* Volume button (screenbar). Popup built lazily in mwb_volume_clicked(). */
-static void
-mwb_build_volume(MorphosWorkbenchPlugin *mwb, GtkWidget *status_group)
+/* Per-widget builders — each returns the widget to pack into the screenbar. */
+
+static GtkWidget *
+mwb_build_drivelamps(MorphosWorkbenchPlugin *mwb)
+{
+    GtkWidget *diskbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
+    guint d;
+    gtk_style_context_add_class(gtk_widget_get_style_context(diskbox), "mwb-island");
+    for (d = 0; d < 2; d++) {
+        mwb->disk_lamps[d] = mwb_lamp_new(_("Disk activity"), "disk");
+        gtk_box_pack_start(GTK_BOX(diskbox), mwb->disk_lamps[d], FALSE, FALSE, 0);
+    }
+    return diskbox;
+}
+
+static GtkWidget *
+mwb_build_netlamps(MorphosWorkbenchPlugin *mwb)
+{
+    GtkWidget *netbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
+    gtk_style_context_add_class(gtk_widget_get_style_context(netbox), "mwb-island");
+    mwb->net_lamps[MWB_LAMP_NET_TX] = mwb_lamp_new(_("Network transmit"), "net");
+    gtk_box_pack_start(GTK_BOX(netbox), mwb->net_lamps[MWB_LAMP_NET_TX], FALSE, FALSE, 0);
+    mwb->net_lamps[MWB_LAMP_NET_RX] = mwb_lamp_new(_("Network receive"), "net");
+    gtk_box_pack_start(GTK_BOX(netbox), mwb->net_lamps[MWB_LAMP_NET_RX], FALSE, FALSE, 0);
+    return netbox;
+}
+
+static GtkWidget *
+mwb_build_wifi(MorphosWorkbenchPlugin *mwb)
+{
+    mwb->nm_plugin = mwb_embed_networkmanager(mwb);
+    if (mwb->nm_plugin)
+        gtk_widget_show(mwb->nm_plugin);
+    return mwb->nm_plugin;
+}
+
+static GtkWidget *
+mwb_build_battery(MorphosWorkbenchPlugin *mwb)
+{
+    mwb->batt_button = gtk_button_new();
+    gtk_button_set_relief(GTK_BUTTON(mwb->batt_button), GTK_RELIEF_NONE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_button), "mwb-volbutton");
+    GtkWidget *batt_content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    mwb->batt_icon = gtk_image_new_from_icon_name("battery-full-symbolic", GTK_ICON_SIZE_MENU);
+    gtk_box_pack_start(GTK_BOX(batt_content), mwb->batt_icon, FALSE, FALSE, 0);
+    gtk_widget_show(mwb->batt_icon);
+    mwb->batt_label = gtk_label_new("");
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_label), "mwb-screenbar-item");
+    gtk_box_pack_start(GTK_BOX(batt_content), mwb->batt_label, FALSE, FALSE, 0);
+    gtk_widget_show(mwb->batt_label);
+    gtk_container_add(GTK_CONTAINER(mwb->batt_button), batt_content);
+    gtk_widget_show(batt_content);
+    g_signal_connect(mwb->batt_button, "clicked", G_CALLBACK(mwb_batt_clicked), mwb);
+    return mwb->batt_button;
+}
+
+static GtkWidget *
+mwb_build_cpu(MorphosWorkbenchPlugin *mwb)
+{
+    gint nc = sysconf(_SC_NPROCESSORS_ONLN);
+    if (nc > 16)
+        nc = 16;
+    if (nc < 1)
+        nc = 1;
+    mwb->cpu_ncores = nc;
+
+    GtkWidget *cpurow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    mwb->cpu_gauges[0] = mwb_gauge_new(MWB_GAUGE_CPU, _("CPU"), mwb->theme, mwb->gauge_style);
+    gtk_box_pack_start(GTK_BOX(cpurow), mwb->cpu_gauges[0], FALSE, FALSE, 0);
+    return cpurow;
+}
+
+static GtkWidget *
+mwb_build_mem(MorphosWorkbenchPlugin *mwb)
+{
+    GtkWidget *memrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    mwb->mem_gauge = mwb_gauge_new(MWB_GAUGE_MEM, _("RAM"), mwb->theme, mwb->gauge_style);
+    gtk_box_pack_start(GTK_BOX(memrow), mwb->mem_gauge, FALSE, FALSE, 0);
+    return memrow;
+}
+
+static GtkWidget *
+mwb_build_diskgauge(MorphosWorkbenchPlugin *mwb)
+{
+    GtkWidget *diskrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    mwb->disk_gauge = mwb_gauge_new(MWB_GAUGE_DISK, _("DISK"), mwb->theme, mwb->gauge_style);
+    gtk_box_pack_start(GTK_BOX(diskrow), mwb->disk_gauge, FALSE, FALSE, 0);
+    return diskrow;
+}
+
+static GtkWidget *
+mwb_build_sysinfo(MorphosWorkbenchPlugin *mwb)
+{
+    mwb->sys_button = gtk_button_new();
+    gtk_button_set_relief(GTK_BUTTON(mwb->sys_button), GTK_RELIEF_NONE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->sys_button), "mwb-volbutton");
+    gtk_widget_set_tooltip_text(mwb->sys_button, _("System information"));
+    GtkWidget *sys_img = gtk_image_new_from_icon_name("computer", GTK_ICON_SIZE_MENU);
+    gtk_container_add(GTK_CONTAINER(mwb->sys_button), sys_img);
+    gtk_widget_show(sys_img);
+    g_signal_connect(mwb->sys_button, "clicked", G_CALLBACK(mwb_sys_clicked), mwb);
+    return mwb->sys_button;
+}
+
+static GtkWidget *
+mwb_build_volume(MorphosWorkbenchPlugin *mwb)
 {
     mwb->vol_button = gtk_button_new();
     gtk_button_set_relief(GTK_BUTTON(mwb->vol_button), GTK_RELIEF_NONE);
@@ -827,7 +972,57 @@ mwb_build_volume(MorphosWorkbenchPlugin *mwb, GtkWidget *status_group)
     gtk_container_add(GTK_CONTAINER(mwb->vol_button), mwb->vol_icon);
     gtk_widget_show(mwb->vol_icon);
     g_signal_connect(mwb->vol_button, "clicked", G_CALLBACK(mwb_volume_clicked), mwb);
-    gtk_box_pack_start(GTK_BOX(status_group), mwb->vol_button, FALSE, FALSE, 0);
+    return mwb->vol_button;
+}
+
+static GtkWidget *
+mwb_build_clock(MorphosWorkbenchPlugin *mwb)
+{
+    mwb->clock_button = gtk_button_new();
+    gtk_button_set_relief(GTK_BUTTON(mwb->clock_button), GTK_RELIEF_NONE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->clock_button), "mwb-clockbtn");
+    mwb->clock_label = gtk_label_new("");
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->clock_label), "mwb-clocks");
+    gtk_container_add(GTK_CONTAINER(mwb->clock_button), mwb->clock_label);
+    gtk_widget_show(mwb->clock_label);
+    g_signal_connect(mwb->clock_button, "clicked", G_CALLBACK(mwb_clock_clicked), mwb);
+    return mwb->clock_button;
+}
+
+static gboolean
+mwb_widget_enabled(MorphosWorkbenchPlugin *mwb, MorphosWorkbenchWidget w)
+{
+    switch (w) {
+    case MWB_WIDGET_DRIVELAMPS: return mwb->show_drivelamps;
+    case MWB_WIDGET_NETLAMPS:   return mwb->show_netlamps;
+    case MWB_WIDGET_WIFI:       return mwb->show_wifi;
+    case MWB_WIDGET_BATTERY:    return mwb->show_battery;
+    case MWB_WIDGET_CPU:        return mwb->show_cpumbar;
+    case MWB_WIDGET_MEM:        return mwb->show_membar;
+    case MWB_WIDGET_DISK:       return mwb->show_diskgauge;
+    case MWB_WIDGET_SYSINFO:    return mwb->show_sysinfo;
+    case MWB_WIDGET_VOLUME:     return mwb->show_volume;
+    case MWB_WIDGET_CLOCK:      return mwb->show_clock;
+    default:                    return FALSE;
+    }
+}
+
+static GtkWidget *
+mwb_build_widget(MorphosWorkbenchPlugin *mwb, MorphosWorkbenchWidget w)
+{
+    switch (w) {
+    case MWB_WIDGET_DRIVELAMPS: return mwb_build_drivelamps(mwb);
+    case MWB_WIDGET_NETLAMPS:   return mwb_build_netlamps(mwb);
+    case MWB_WIDGET_WIFI:       return mwb_build_wifi(mwb);
+    case MWB_WIDGET_BATTERY:    return mwb_build_battery(mwb);
+    case MWB_WIDGET_CPU:        return mwb_build_cpu(mwb);
+    case MWB_WIDGET_MEM:        return mwb_build_mem(mwb);
+    case MWB_WIDGET_DISK:       return mwb_build_diskgauge(mwb);
+    case MWB_WIDGET_SYSINFO:    return mwb_build_sysinfo(mwb);
+    case MWB_WIDGET_VOLUME:     return mwb_build_volume(mwb);
+    case MWB_WIDGET_CLOCK:      return mwb_build_clock(mwb);
+    default:                    return NULL;
+    }
 }
 
 void
@@ -836,135 +1031,18 @@ mwb_build_screenbar(MorphosWorkbenchPlugin *mwb)
     GtkWidget *right = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_style_context_add_class(gtk_widget_get_style_context(right), "mwb-hbox");
     mwb->screenbar = right;
-    GtkWidget *status_group = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-    gtk_style_context_add_class(gtk_widget_get_style_context(status_group), "mwb-status-group");
 
-    /* ---- Drivelamps ---- */
-    if (mwb->show_drivelamps) {
-        GtkWidget *diskbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
-        gtk_style_context_add_class(gtk_widget_get_style_context(diskbox), "mwb-island");
-        guint d;
-        for (d = 0; d < 2; d++) {
-            mwb->disk_lamps[d] = mwb_lamp_new(_("Disk activity"), "disk");
-            gtk_box_pack_start(GTK_BOX(diskbox), mwb->disk_lamps[d], FALSE, FALSE, 0);
+    gint i;
+    for (i = 0; i < MWB_WIDGET_COUNT; i++) {
+        MorphosWorkbenchWidget w = (MorphosWorkbenchWidget)mwb->widget_order[i];
+        GtkWidget *wgt;
+        if (!mwb_widget_enabled(mwb, w))
+            continue;
+        wgt = mwb_build_widget(mwb, w);
+        if (wgt) {
+            gtk_box_pack_start(GTK_BOX(right), wgt, FALSE, FALSE, 0);
+            gtk_box_pack_start(GTK_BOX(right), mwb_screenbar_divider(), FALSE, FALSE, 0);
         }
-        gtk_box_pack_start(GTK_BOX(right), diskbox, FALSE, FALSE, 0);
-    }
-
-    gtk_box_pack_start(GTK_BOX(right), mwb_screenbar_divider(), FALSE, FALSE, 0);
-
-    /* ---- Netlamps ---- */
-    if (mwb->show_netlamps) {
-        GtkWidget *netbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
-        gtk_style_context_add_class(gtk_widget_get_style_context(netbox), "mwb-island");
-        mwb->net_lamps[MWB_LAMP_NET_TX] = mwb_lamp_new(_("Network transmit"), "net");
-        gtk_box_pack_start(GTK_BOX(netbox), mwb->net_lamps[MWB_LAMP_NET_TX], FALSE, FALSE, 0);
-
-        mwb->net_lamps[MWB_LAMP_NET_RX] = mwb_lamp_new(_("Network receive"), "net");
-        gtk_box_pack_start(GTK_BOX(netbox), mwb->net_lamps[MWB_LAMP_NET_RX], FALSE, FALSE, 0);
-
-        gtk_box_pack_start(GTK_BOX(right), netbox, FALSE, FALSE, 0);
-    }
-
-    gtk_box_pack_start(GTK_BOX(right), mwb_screenbar_divider(), FALSE, FALSE, 0);
-
-    /* ---- Wi-Fi indicator (embedded xfce4-networkmanager) ---- */
-    if (mwb->show_wifi) {
-        mwb->nm_plugin = mwb_embed_networkmanager(mwb);
-        if (mwb->nm_plugin != NULL) {
-            gtk_box_pack_start(GTK_BOX(status_group), mwb->nm_plugin, FALSE, FALSE, 0);
-            gtk_widget_show(mwb->nm_plugin);
-        }
-    }
-
-    /* ---- Battery ---- */
-    if (mwb->show_battery) {
-        mwb->batt_button = gtk_button_new();
-        gtk_button_set_relief(GTK_BUTTON(mwb->batt_button), GTK_RELIEF_NONE);
-        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_button), "mwb-volbutton");
-        GtkWidget *batt_content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-        mwb->batt_icon = gtk_image_new_from_icon_name("battery-full-symbolic", GTK_ICON_SIZE_MENU);
-        gtk_box_pack_start(GTK_BOX(batt_content), mwb->batt_icon, FALSE, FALSE, 0);
-        gtk_widget_show(mwb->batt_icon);
-        mwb->batt_label = gtk_label_new("");
-        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_label), "mwb-screenbar-item");
-        gtk_box_pack_start(GTK_BOX(batt_content), mwb->batt_label, FALSE, FALSE, 0);
-        gtk_widget_show(mwb->batt_label);
-        gtk_container_add(GTK_CONTAINER(mwb->batt_button), batt_content);
-        gtk_widget_show(batt_content);
-        g_signal_connect(mwb->batt_button, "clicked", G_CALLBACK(mwb_batt_clicked), mwb);
-        gtk_box_pack_start(GTK_BOX(status_group), mwb->batt_button, FALSE, FALSE, 0);
-    }
-
-    gtk_box_pack_start(GTK_BOX(right), status_group, FALSE, FALSE, 0);
-
-    gtk_box_pack_start(GTK_BOX(right), mwb_screenbar_divider(), FALSE, FALSE, 0);
-
-    /* ---- CPU per-core vertical gauges ---- */
-    if (mwb->show_cpumbar) {
-        gint nc = sysconf(_SC_NPROCESSORS_ONLN);
-        if (nc > 16)
-            nc = 16;
-        if (nc < 1)
-            nc = 1;
-        mwb->cpu_ncores = nc;
-
-        GtkWidget *cpurow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-        mwb->cpu_gauges[0] = mwb_gauge_new(MWB_GAUGE_CPU, _("CPU"), mwb->theme, mwb->gauge_style);
-        gtk_box_pack_start(GTK_BOX(cpurow), mwb->cpu_gauges[0], FALSE, FALSE, 0);
-        gtk_box_pack_start(GTK_BOX(right), cpurow, FALSE, FALSE, 0);
-    }
-
-    gtk_box_pack_start(GTK_BOX(right), mwb_screenbar_divider(), FALSE, FALSE, 0);
-
-    /* ---- Memory vertical gauge ---- */
-    if (mwb->show_membar) {
-        GtkWidget *memrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-        mwb->mem_gauge = mwb_gauge_new(MWB_GAUGE_MEM, _("RAM"), mwb->theme, mwb->gauge_style);
-        gtk_box_pack_start(GTK_BOX(memrow), mwb->mem_gauge, FALSE, FALSE, 0);
-
-        gtk_box_pack_start(GTK_BOX(right), memrow, FALSE, FALSE, 0);
-    }
-
-    /* ---- Disk vertical gauge ---- */
-    if (mwb->show_diskgauge) {
-        GtkWidget *diskrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-        mwb->disk_gauge = mwb_gauge_new(MWB_GAUGE_DISK, _("DISK"), mwb->theme, mwb->gauge_style);
-        gtk_box_pack_start(GTK_BOX(diskrow), mwb->disk_gauge, FALSE, FALSE, 0);
-
-        gtk_box_pack_start(GTK_BOX(right), diskrow, FALSE, FALSE, 0);
-    }
-
-    gtk_box_pack_start(GTK_BOX(right), mwb_screenbar_divider(), FALSE, FALSE, 0);
-
-    /* ---- System info ---- */
-    if (mwb->show_sysinfo) {
-        mwb->sys_button = gtk_button_new();
-        gtk_button_set_relief(GTK_BUTTON(mwb->sys_button), GTK_RELIEF_NONE);
-        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->sys_button), "mwb-volbutton");
-        gtk_widget_set_tooltip_text(mwb->sys_button, _("System information"));
-        GtkWidget *sys_img = gtk_image_new_from_icon_name("computer", GTK_ICON_SIZE_MENU);
-        gtk_container_add(GTK_CONTAINER(mwb->sys_button), sys_img);
-        gtk_widget_show(sys_img);
-        g_signal_connect(mwb->sys_button, "clicked", G_CALLBACK(mwb_sys_clicked), mwb);
-        gtk_box_pack_start(GTK_BOX(right), mwb->sys_button, FALSE, FALSE, 0);
-    }
-
-    /* ---- Volume ---- */
-    if (mwb->show_volume)
-        mwb_build_volume(mwb, status_group);
-
-    /* ---- Clock (clickable -> calendar) ---- */
-    if (mwb->show_clock) {
-        mwb->clock_button = gtk_button_new();
-        gtk_button_set_relief(GTK_BUTTON(mwb->clock_button), GTK_RELIEF_NONE);
-        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->clock_button), "mwb-clockbtn");
-        mwb->clock_label = gtk_label_new("");
-        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->clock_label), "mwb-clocks");
-        gtk_container_add(GTK_CONTAINER(mwb->clock_button), mwb->clock_label);
-        gtk_widget_show(mwb->clock_label);
-        g_signal_connect(mwb->clock_button, "clicked", G_CALLBACK(mwb_clock_clicked), mwb);
-        gtk_box_pack_start(GTK_BOX(right), mwb->clock_button, FALSE, FALSE, 0);
     }
 
     gtk_box_pack_end(GTK_BOX(mwb->bar), right, FALSE, FALSE, 0);
@@ -998,5 +1076,9 @@ mwb_build_screenbar(MorphosWorkbenchPlugin *mwb)
     if (mwb->show_sysinfo || mwb->show_diskgauge) {
         mwb_tick_sysinfo(mwb);
         mwb->sys_timeout = g_timeout_add_seconds(5, (GSourceFunc)mwb_tick_sysinfo, mwb);
+    }
+    if (mwb->show_volume) {
+        mwb_volume_refresh(mwb);
+        mwb->vol_timeout = g_timeout_add_seconds(5, (GSourceFunc)mwb_tick_volume, mwb);
     }
 }
