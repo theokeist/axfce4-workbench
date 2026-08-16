@@ -263,6 +263,9 @@ mwb_construct(XfcePanelPlugin *plugin)
 
     mwb_init_css();
 
+    mwb_load_config(mwb);
+    mwb_init_notification_monitor(mwb);
+
     mwb_build_bar(mwb);
     mwb_create_menus(mwb);
     mwb_apply_theme(mwb);
@@ -274,8 +277,8 @@ mwb_construct(XfcePanelPlugin *plugin)
 
     /* right side: screenbar (lamps, gauges, wifi, battery, volume, clock) */
     mwb_build_screenbar(mwb);
-
-    mwb_load_config(mwb);
+    mwb_apply_left_visibility(mwb);
+    mwb_apply_widget_order(mwb);
 
     mwb_tick_title(mwb);
     mwb->title_timeout = g_timeout_add_seconds(1, (GSourceFunc)mwb_tick_title, mwb);
@@ -324,6 +327,18 @@ mwb_free_data(XfcePanelPlugin *plugin G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb
         g_source_remove(mwb->notify_grab);
     if (mwb->notify_poll_id)
         g_source_remove(mwb->notify_poll_id);
+    if (mwb->notify_mon_conn) {
+        if (mwb->notify_filter_id)
+            g_dbus_connection_remove_filter(mwb->notify_mon_conn, mwb->notify_filter_id);
+        g_dbus_connection_close_sync(mwb->notify_mon_conn, NULL, NULL);
+        g_object_unref(mwb->notify_mon_conn);
+        mwb->notify_mon_conn = NULL;
+    }
+    if (mwb->notify_dbus_id) {
+        GDBusConnection *conn = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+        if (conn)
+            g_dbus_connection_signal_unsubscribe(conn, mwb->notify_dbus_id);
+    }
     if (mwb->vol_debounce_id)
         g_source_remove(mwb->vol_debounce_id);
     if (mwb->vol_mic_debounce_id)
@@ -356,7 +371,7 @@ mwb_free_data(XfcePanelPlugin *plugin G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb
     mwb_recent_clear(mwb);
     mwb_tracked_launches_clear(mwb);
     mwb_apps_free(mwb->installed_apps);
-    g_list_free_full(mwb->notifications, (GDestroyNotify)g_free);
+    g_list_free_full(mwb->notifications, (GDestroyNotify)mwb_notification_free);
     mwb->notifications = NULL;
     g_free(mwb->vol_playing_bus);
     g_free(mwb->net_prev_tip);

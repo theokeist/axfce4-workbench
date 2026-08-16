@@ -373,7 +373,7 @@ static const gchar *MWB_CSS =
   ".mwb-menu-disk { min-width: 230px; }"
   ".mwb-menu-applications { min-width: 280px; }"
   /* ---- CLASSIC theme (original Ambient dark-blue) ---- */
-  ".mwb-bar.mwb-theme-classic, .mwb-theme-classic.mwb-bar, .mwb-theme-classic .mwb-bar {"
+  ".mwb-bar.mwb-theme-classic, .mwb-theme-classic.mwb-bar, .mwb-theme-classic .mwb-bar, .mwb-plugin.mwb-theme-classic .mwb-bar, .mwb-plugin.mwb-theme-classic {"
   "  background-image: linear-gradient(to bottom,"
   "    #2c3f5c 0%, #253650 35%, #1c2a40 100%);"
   "  background-color: #1c2a40;"
@@ -565,7 +565,7 @@ static const gchar *MWB_CSS =
   "  box-shadow: 0 0 6px alpha(#72bbfd, 0.8), 0 2px 5px alpha(#000000, 0.6);"
   "}"
   /* ---- DARK theme (sleek near-black) ---- */
-  ".mwb-bar.mwb-theme-dark, .mwb-theme-dark.mwb-bar, .mwb-theme-dark .mwb-bar {"
+  ".mwb-bar.mwb-theme-dark, .mwb-theme-dark.mwb-bar, .mwb-theme-dark .mwb-bar, .mwb-plugin.mwb-theme-dark .mwb-bar, .mwb-plugin.mwb-theme-dark {"
   "  background-image: linear-gradient(to bottom,"
   "    #1c2430 0%, #141a24 45%, #0d121a 100%);"
   "  background-color: #0d121a;"
@@ -752,7 +752,7 @@ static const gchar *MWB_CSS =
   "  box-shadow: 0 0 6px alpha(#60a5fa, 0.8), 0 2px 5px alpha(#000000, 0.7);"
   "}"
   /* ---- LIGHT theme (silver / classic Workbench metal) ---- */
-  ".mwb-bar.mwb-theme-light, .mwb-theme-light.mwb-bar, .mwb-theme-light .mwb-bar {"
+  ".mwb-bar.mwb-theme-light, .mwb-theme-light.mwb-bar, .mwb-theme-light .mwb-bar, .mwb-plugin.mwb-theme-light .mwb-bar, .mwb-plugin.mwb-theme-light {"
   "  background-image: linear-gradient(to bottom,"
   "    #f2f4f7 0%, #d9dee5 45%, #b8c0ca 100%);"
   "  background-color: #cdd4dc;"
@@ -1146,7 +1146,7 @@ mwb_apply_menu_opacity(MorphosWorkbenchPlugin *mwb)
 
     alpha = CLAMP(mwb->menu_opacity, 0, 100) / 100.0;
     css = g_strdup_printf(
-        "window.popup, window.popup > menu, window.background.popup, window.menu, window.background, window.mwb-popup, window.mwb-vol-popup {\n"
+        "window.popup, window.popup > menu, window.background.popup, window.menu, window.mwb-popup, window.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
         "  background: transparent !important;\n"
         "  background-color: transparent !important;\n"
         "  background-image: none !important;\n"
@@ -1163,15 +1163,15 @@ mwb_apply_menu_opacity(MorphosWorkbenchPlugin *mwb)
         "  background-image: linear-gradient(to bottom, rgba(255, 255, 255, %.3f) 0%%, rgba(235, 240, 246, %.3f) 100%%) !important;\n"
         "  background-color: rgba(240, 243, 247, %.3f) !important;\n"
         "}\n"
-        ".mwb-theme-classic.mwb-popup, .mwb-theme-classic .mwb-popup, .mwb-theme-classic.mwb-vol-popup, .mwb-theme-classic .mwb-vol-popup, window.mwb-theme-classic.mwb-popup, window.mwb-theme-classic.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar {\n"
+        ".mwb-theme-classic.mwb-popup, .mwb-theme-classic .mwb-popup, .mwb-theme-classic.mwb-vol-popup, .mwb-theme-classic .mwb-vol-popup, window.mwb-theme-classic.mwb-popup, window.mwb-theme-classic.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
         "  background-image: linear-gradient(to bottom, rgba(29, 44, 68, %.3f) 0%%, rgba(21, 34, 54, %.3f) 100%%) !important;\n"
         "  background-color: rgba(21, 34, 54, %.3f) !important;\n"
         "}\n"
-        ".mwb-theme-dark.mwb-popup, .mwb-theme-dark .mwb-popup, .mwb-theme-dark.mwb-vol-popup, .mwb-theme-dark .mwb-vol-popup, window.mwb-theme-dark.mwb-popup, window.mwb-theme-dark.mwb-vol-popup {\n"
+        ".mwb-theme-dark.mwb-popup, .mwb-theme-dark .mwb-popup, .mwb-theme-dark.mwb-vol-popup, .mwb-theme-dark .mwb-vol-popup, window.mwb-theme-dark.mwb-popup, window.mwb-theme-dark.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
         "  background-image: linear-gradient(to bottom, rgba(22, 28, 36, %.3f) 0%%, rgba(13, 17, 23, %.3f) 100%%) !important;\n"
         "  background-color: rgba(13, 17, 23, %.3f) !important;\n"
         "}\n"
-        ".mwb-theme-light.mwb-popup, .mwb-theme-light .mwb-popup, .mwb-theme-light.mwb-vol-popup, .mwb-theme-light .mwb-vol-popup, window.mwb-theme-light.mwb-popup, window.mwb-theme-light.mwb-vol-popup {\n"
+        ".mwb-theme-light.mwb-popup, .mwb-theme-light .mwb-popup, .mwb-theme-light.mwb-vol-popup, .mwb-theme-light .mwb-vol-popup, window.mwb-theme-light.mwb-popup, window.mwb-theme-light.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
         "  background-image: linear-gradient(to bottom, rgba(255, 255, 255, %.3f) 0%%, rgba(237, 242, 247, %.3f) 100%%) !important;\n"
         "  background-color: rgba(237, 242, 247, %.3f) !important;\n"
         "}\n",

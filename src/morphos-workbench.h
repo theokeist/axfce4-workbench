@@ -191,7 +191,9 @@ typedef struct {
     guint            batt_grab;       /* seat grab timer id */
     guint            wifi_grab;       /* seat grab timer id */
     guint            notify_grab;     /* seat grab timer id */
+    GDBusConnection *notify_mon_conn; /* private D-Bus monitor connection */
     guint            notify_dbus_id;  /* D-Bus signal subscription id */
+    guint            notify_filter_id;/* D-Bus message filter id */
     guint            notify_poll_id;  /* notification poll timer id */
     gint64           popup_open_time;
     GtkWidget       *menus[MWB_MENU_COUNT];
@@ -308,6 +310,12 @@ void        mwb_build_screenbar         (MorphosWorkbenchPlugin *mwb);
 void        mwb_apply_widget_order      (MorphosWorkbenchPlugin *mwb);
 const gchar *mwb_widget_name            (guint widget);
 void        mwb_notifications_refresh   (MorphosWorkbenchPlugin *mwb);
+void        mwb_init_notification_monitor (MorphosWorkbenchPlugin *mwb);
+void        mwb_notification_add        (MorphosWorkbenchPlugin *mwb,
+                                         const gchar *app_name,
+                                         const gchar *icon_name,
+                                         const gchar *summary,
+                                         const gchar *body_text);
 void        mwb_notification_free       (MwbNotification *n);
 
 /* config.c */

@@ -2473,25 +2473,38 @@ static void
 mwb_notifications_load_sqlite(MorphosWorkbenchPlugin *mwb)
 {
 #ifdef HAVE_SQLITE3
-    gchar *db_path = g_build_filename(g_get_user_cache_dir(), "xfce4", "notifyd", "log.sqlite", NULL);
-    if (!g_file_test(db_path, G_FILE_TEST_EXISTS)) {
-        g_free(db_path);
-        return;
-    }
+    gchar *dir = g_build_filename(g_get_user_cache_dir(), "xfce4", "notifyd", NULL);
+    g_mkdir_with_parents(dir, 0755);
+    gchar *db_path = g_build_filename(dir, "log.sqlite", NULL);
+    g_free(dir);
 
     sqlite3 *db = NULL;
-    if (sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK) {
+    if (sqlite3_open(db_path, &db) != SQLITE_OK) {
         if (db)
             sqlite3_close(db);
         g_free(db_path);
         return;
     }
 
+    sqlite3_exec(db,
+        "CREATE TABLE IF NOT EXISTS notifications ("
+        "id TEXT PRIMARY KEY NOT NULL,"
+        "timestamp INTEGER NOT NULL,"
+        "tz_identifier TEXT NOT NULL,"
+        "app_id TEXT,"
+        "app_name TEXT,"
+        "icon_id TEXT,"
+        "summary TEXT,"
+        "body TEXT,"
+        "actions BLOB,"
+        "expire_timeout INTEGER,"
+        "is_read INTEGER NOT NULL DEFAULT FALSE"
+        ");", NULL, NULL, NULL);
+
     sqlite3_stmt *stmt = NULL;
     const gchar *sql = "SELECT id, timestamp, app_name, icon_id, summary, body, is_read FROM notifications ORDER BY timestamp DESC LIMIT 40;";
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
-        g_list_free_full(mwb->notifications, (GDestroyNotify)mwb_notification_free);
-        mwb->notifications = NULL;
+        GList *new_list = NULL;
 
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             MwbNotification *n = g_new0(MwbNotification, 1);
@@ -2511,13 +2524,76 @@ mwb_notifications_load_sqlite(MorphosWorkbenchPlugin *mwb)
             n->body = g_strdup(c_body ? c_body : "");
             n->is_read = is_read ? TRUE : FALSE;
 
-            mwb->notifications = g_list_append(mwb->notifications, n);
+            new_list = g_list_append(new_list, n);
         }
         sqlite3_finalize(stmt);
+
+        g_list_free_full(mwb->notifications, (GDestroyNotify)mwb_notification_free);
+        mwb->notifications = new_list;
     }
     sqlite3_close(db);
     g_free(db_path);
 #endif
+}
+
+void
+mwb_notification_add(MorphosWorkbenchPlugin *mwb,
+                     const gchar *app_name,
+                     const gchar *icon_name,
+                     const gchar *summary,
+                     const gchar *body_text)
+{
+    if (!mwb || !summary || !*summary)
+        return;
+
+    gint64 now = g_get_real_time() / G_USEC_PER_SEC;
+    gchar *uid = g_strdup_printf("%" G_GINT64_FORMAT "-%u", now, g_random_int_range(1000, 9999));
+
+#ifdef HAVE_SQLITE3
+    gchar *dir = g_build_filename(g_get_user_cache_dir(), "xfce4", "notifyd", NULL);
+    g_mkdir_with_parents(dir, 0755);
+    gchar *db_path = g_build_filename(dir, "log.sqlite", NULL);
+    g_free(dir);
+
+    sqlite3 *db = NULL;
+    if (sqlite3_open(db_path, &db) == SQLITE_OK) {
+        sqlite3_exec(db,
+            "CREATE TABLE IF NOT EXISTS notifications ("
+            "id TEXT PRIMARY KEY NOT NULL,"
+            "timestamp INTEGER NOT NULL,"
+            "tz_identifier TEXT NOT NULL,"
+            "app_id TEXT,"
+            "app_name TEXT,"
+            "icon_id TEXT,"
+            "summary TEXT,"
+            "body TEXT,"
+            "actions BLOB,"
+            "expire_timeout INTEGER,"
+            "is_read INTEGER NOT NULL DEFAULT FALSE"
+            ");", NULL, NULL, NULL);
+
+        sqlite3_stmt *stmt = NULL;
+        const gchar *sql = "INSERT OR REPLACE INTO notifications (id, timestamp, tz_identifier, app_id, app_name, icon_id, summary, body, expire_timeout, is_read) VALUES (?, ?, 'UTC', ?, ?, ?, ?, ?, 5000, 0);";
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
+            const gchar *app = (app_name && *app_name) ? app_name : "System";
+            const gchar *icon = (icon_name && *icon_name) ? icon_name : "dialog-information";
+            sqlite3_bind_text(stmt, 1, uid, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int64(stmt, 2, now);
+            sqlite3_bind_text(stmt, 3, app, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 4, app, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 5, icon, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 6, summary, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 7, body_text ? body_text : "", -1, SQLITE_TRANSIENT);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+        sqlite3_close(db);
+    }
+    g_free(db_path);
+#endif
+    g_free(uid);
+
+    mwb_notifications_refresh(mwb);
 }
 
 static void
@@ -2705,6 +2781,76 @@ mwb_notifications_refresh(MorphosWorkbenchPlugin *mwb)
     gtk_widget_show_all(mwb->notify_list_box);
 }
 
+typedef struct {
+    MorphosWorkbenchPlugin *mwb;
+    gchar *app_name;
+    gchar *icon_name;
+    gchar *summary;
+    gchar *body;
+} MwbNotifyData;
+
+static gboolean
+mwb_notification_add_idle(gpointer data)
+{
+    MwbNotifyData *nd = data;
+    if (nd) {
+        mwb_notification_add(nd->mwb, nd->app_name, nd->icon_name, nd->summary, nd->body);
+        g_free(nd->app_name);
+        g_free(nd->icon_name);
+        g_free(nd->summary);
+        g_free(nd->body);
+        g_free(nd);
+    }
+    return G_SOURCE_REMOVE;
+}
+
+static GDBusMessage *
+mwb_notify_dbus_filter(GDBusConnection *connection G_GNUC_UNUSED,
+                       GDBusMessage *message,
+                       gboolean incoming G_GNUC_UNUSED,
+                       gpointer user_data)
+{
+    MorphosWorkbenchPlugin *mwb = user_data;
+    if (!mwb)
+        return message;
+
+    if (g_dbus_message_get_message_type(message) == G_DBUS_MESSAGE_TYPE_METHOD_CALL) {
+        const gchar *member = g_dbus_message_get_member(message);
+        const gchar *interface = g_dbus_message_get_interface(message);
+        if (g_strcmp0(member, "Notify") == 0 &&
+            (interface == NULL || g_strcmp0(interface, "org.freedesktop.Notifications") == 0)) {
+            GVariant *body = g_dbus_message_get_body(message);
+            if (body && g_variant_n_children(body) >= 5) {
+                GVariant *v_app = g_variant_get_child_value(body, 0);
+                GVariant *v_icon = g_variant_get_child_value(body, 2);
+                GVariant *v_sum = g_variant_get_child_value(body, 3);
+                GVariant *v_body = g_variant_get_child_value(body, 4);
+
+                const gchar *app_name = (v_app && g_variant_is_of_type(v_app, G_VARIANT_TYPE_STRING)) ? g_variant_get_string(v_app, NULL) : NULL;
+                const gchar *app_icon = (v_icon && g_variant_is_of_type(v_icon, G_VARIANT_TYPE_STRING)) ? g_variant_get_string(v_icon, NULL) : NULL;
+                const gchar *summary = (v_sum && g_variant_is_of_type(v_sum, G_VARIANT_TYPE_STRING)) ? g_variant_get_string(v_sum, NULL) : NULL;
+                const gchar *body_text = (v_body && g_variant_is_of_type(v_body, G_VARIANT_TYPE_STRING)) ? g_variant_get_string(v_body, NULL) : NULL;
+
+                if (summary && *summary) {
+                    MwbNotifyData *nd = g_new0(MwbNotifyData, 1);
+                    nd->mwb = mwb;
+                    nd->app_name = g_strdup(app_name);
+                    nd->icon_name = g_strdup(app_icon);
+                    nd->summary = g_strdup(summary);
+                    nd->body = g_strdup(body_text);
+                    g_idle_add(mwb_notification_add_idle, nd);
+                }
+
+                if (v_app) g_variant_unref(v_app);
+                if (v_icon) g_variant_unref(v_icon);
+                if (v_sum) g_variant_unref(v_sum);
+                if (v_body) g_variant_unref(v_body);
+            }
+        }
+    }
+    return message;
+}
+
 static void
 mwb_notify_dbus_signal(GDBusConnection *conn G_GNUC_UNUSED,
                        const gchar *sender_name G_GNUC_UNUSED,
@@ -2814,6 +2960,52 @@ mwb_notify_clicked(GtkWidget *widget G_GNUC_UNUSED, gpointer data)
     mwb_popup_show(mwb, mwb->notify_popup, mwb->notify_button);
 }
 
+void
+mwb_init_notification_monitor(MorphosWorkbenchPlugin *mwb)
+{
+    if (!mwb || mwb->notify_mon_conn)
+        return;
+
+    gchar *address = g_dbus_address_get_for_bus_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+    if (address) {
+        GDBusConnection *mon = g_dbus_connection_new_for_address_sync(
+            address,
+            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT | G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION,
+            NULL,
+            NULL,
+            NULL);
+        g_free(address);
+
+        if (mon) {
+            mwb->notify_mon_conn = mon;
+            mwb->notify_filter_id = g_dbus_connection_add_filter(
+                mon,
+                mwb_notify_dbus_filter,
+                mwb,
+                NULL);
+
+            GVariantBuilder b;
+            g_variant_builder_init(&b, G_VARIANT_TYPE("as"));
+            g_variant_builder_add(&b, "s", "type='method_call',member='Notify'");
+
+            GVariant *res = g_dbus_connection_call_sync(
+                mon,
+                "org.freedesktop.DBus",
+                "/org/freedesktop/DBus",
+                "org.freedesktop.DBus.Monitoring",
+                "BecomeMonitor",
+                g_variant_new("(@asu)", g_variant_builder_end(&b), (guint32)0),
+                NULL,
+                G_DBUS_CALL_FLAGS_NONE,
+                -1,
+                NULL,
+                NULL);
+            if (res)
+                g_variant_unref(res);
+        }
+    }
+}
+
 static GtkWidget *
 mwb_build_notifications(MorphosWorkbenchPlugin *mwb)
 {
@@ -2838,7 +3030,10 @@ mwb_build_notifications(MorphosWorkbenchPlugin *mwb)
     g_signal_connect(mwb->notify_button, "clicked", G_CALLBACK(mwb_notify_clicked), mwb);
     gtk_box_pack_start(GTK_BOX(box), mwb->notify_button, FALSE, FALSE, 0);
 
-    /* Subscribe to D-Bus notification signals */
+    /* Setup D-Bus notification monitor */
+    mwb_init_notification_monitor(mwb);
+
+    /* Also subscribe to D-Bus notification signals on main session bus */
     GDBusConnection *conn = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
     if (conn) {
         mwb->notify_dbus_id = g_dbus_connection_signal_subscribe(
@@ -2922,22 +3117,19 @@ mwb_build_screenbar(MorphosWorkbenchPlugin *mwb)
     gint i;
     for (i = 0; i < MWB_WIDGET_COUNT; i++) {
         MorphosWorkbenchWidget w = (MorphosWorkbenchWidget)mwb->widget_order[i];
-        GtkWidget *wgt;
-        GtkWidget *slot;
-        if (!mwb_widget_enabled(mwb, w))
-            continue;
-        wgt = mwb_build_widget(mwb, w);
+        GtkWidget *wgt = mwb_build_widget(mwb, w);
         if (wgt) {
-            slot = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+            GtkWidget *slot = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
             gtk_box_pack_start(GTK_BOX(slot), wgt, FALSE, FALSE, 0);
             gtk_box_pack_start(GTK_BOX(slot), mwb_screenbar_divider(), FALSE, FALSE, 0);
             gtk_box_pack_start(GTK_BOX(right), slot, FALSE, FALSE, 0);
+            gtk_widget_set_visible(slot, mwb_widget_enabled(mwb, w));
             mwb->widget_widgets[w] = slot;
         }
     }
 
     gtk_box_pack_end(GTK_BOX(mwb->bar), right, FALSE, FALSE, 0);
-    gtk_widget_show_all(right);
+    gtk_widget_show(right);
 
     /* Timers */
     if (mwb->show_clock) {
