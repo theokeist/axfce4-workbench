@@ -5,6 +5,8 @@ morphos_workbench_sources = [
   'mwb-utils.c',
   'mwb-gauges.c',
   'mwb-menus.c',
+  'mwb-apps.c',
+  'mwb-recent.c',
   'mwb-screenbar.c',
   'mwb-config.c'
 ]

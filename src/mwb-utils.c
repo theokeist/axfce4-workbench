@@ -39,6 +39,32 @@ mwb_launch(const gchar *command)
                   NULL, NULL, NULL, NULL);
 }
 
+guint
+mwb_launch_tracked(const gchar *command, GChildWatchFunc func, gpointer data)
+{
+    gchar *argv[4];
+    GPid pid;
+    GError *err = NULL;
+
+    if (!command || !*command)
+        return 0;
+
+    argv[0] = (gchar *)"sh";
+    argv[1] = (gchar *)"-c";
+    argv[2] = (gchar *)command;
+    argv[3] = NULL;
+
+    if (!g_spawn_async(NULL, argv, NULL,
+                       G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
+                       NULL, NULL, &pid, &err)) {
+        if (err)
+            g_error_free(err);
+        return 0;
+    }
+
+    return g_child_watch_add(pid, func, data);
+}
+
 /* Create a new folder on the actual desktop (xfdesktop's icon area). */
 void
 mwb_desktop_new_folder(void)
