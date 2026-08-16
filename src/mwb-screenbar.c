@@ -97,6 +97,19 @@ mwb_popup_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
 }
 
 static gboolean
+mwb_popup_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data G_GNUC_UNUSED)
+{
+    GtkStyleContext *context = gtk_widget_get_style_context(widget);
+    gint width = gtk_widget_get_allocated_width(widget);
+    gint height = gtk_widget_get_allocated_height(widget);
+
+    gtk_render_background(context, cr, 0, 0, width, height);
+    gtk_render_frame(context, cr, 0, 0, width, height);
+
+    return FALSE;
+}
+
+static gboolean
 mwb_popup_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data)
 {
     MorphosWorkbenchPlugin *mwb = data;
@@ -275,6 +288,8 @@ mwb_clock_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
 
         gtk_container_add(GTK_CONTAINER(mwb->calendar_popup), root_box);
 
+        g_signal_connect(mwb->calendar_popup, "draw",
+                         G_CALLBACK(mwb_popup_draw), NULL);
         g_signal_connect(mwb->calendar_popup, "button-press-event",
                          G_CALLBACK(mwb_popup_button_press), mwb);
         g_signal_connect(mwb->calendar_popup, "focus-out-event",
@@ -1371,6 +1386,8 @@ mwb_volume_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
                          G_CALLBACK(mwb_volume_changed), mwb);
         g_signal_connect(mwb->vol_mic_scale, "value-changed",
                          G_CALLBACK(mwb_mic_changed), mwb);
+        g_signal_connect(mwb->volume_popup, "draw",
+                         G_CALLBACK(mwb_popup_draw), NULL);
         g_signal_connect(mwb->volume_popup, "button-press-event",
                          G_CALLBACK(mwb_popup_button_press), mwb);
         g_signal_connect(mwb->volume_popup, "focus-out-event",
@@ -1804,6 +1821,8 @@ mwb_batt_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
 
         gtk_container_add(GTK_CONTAINER(mwb->batt_popup), root_box);
 
+        g_signal_connect(mwb->batt_popup, "draw",
+                         G_CALLBACK(mwb_popup_draw), NULL);
         g_signal_connect(mwb->batt_popup, "button-press-event",
                          G_CALLBACK(mwb_popup_button_press), mwb);
         g_signal_connect(mwb->batt_popup, "focus-out-event",
@@ -1937,6 +1956,8 @@ mwb_wifi_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
 
         gtk_container_add(GTK_CONTAINER(mwb->wifi_popup), root_box);
 
+        g_signal_connect(mwb->wifi_popup, "draw",
+                         G_CALLBACK(mwb_popup_draw), NULL);
         g_signal_connect(mwb->wifi_popup, "button-press-event",
                          G_CALLBACK(mwb_popup_button_press), mwb);
         g_signal_connect(mwb->wifi_popup, "focus-out-event",
@@ -3293,6 +3314,7 @@ mwb_notify_clicked(GtkWidget *widget G_GNUC_UNUSED, gpointer data)
         gtk_style_context_add_class(gtk_widget_get_style_context(win), "mwb-vol-popup");
         gtk_widget_set_name(win, "mwb-notify-pop");
 
+        g_signal_connect(win, "draw", G_CALLBACK(mwb_popup_draw), NULL);
         g_signal_connect(win, "button-press-event", G_CALLBACK(mwb_popup_button_press), mwb);
         g_signal_connect(win, "focus-out-event", G_CALLBACK(mwb_popup_focus_out), mwb);
         g_signal_connect(win, "key-press-event", G_CALLBACK(mwb_popup_key_press), mwb);

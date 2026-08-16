@@ -205,11 +205,13 @@ static const gchar *MWB_CSS =
   "}"
   ".mwb-batt-grid-lbl {"
   "  font-size: 10px;"
-  "  opacity: 0.75;"
+  "  font-weight: 600;"
+  "  opacity: 1.0;"
   "}"
   ".mwb-batt-grid-val {"
   "  font-size: 11px;"
   "  font-weight: 600;"
+  "  opacity: 1.0;"
   "}"
   ".mwb-prof-btn {"
   "  min-height: 26px;"
@@ -1411,7 +1413,7 @@ mwb_apply_menu_opacity(MorphosWorkbenchPlugin *mwb)
     alpha = CLAMP(mwb->menu_opacity, 0, 100) / 100.0;
     card_alpha = CLAMP(alpha * 0.80 + 0.20, 0.45, 1.0);
     css = g_strdup_printf(
-        "window.popup, window.popup > menu, window.background.popup, window.menu, .mwb-menu-window {\n"
+        "window.popup > menu, .mwb-menu-window {\n"
         "  background: transparent !important;\n"
         "  background-color: transparent !important;\n"
         "  background-image: none !important;\n"
