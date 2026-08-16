@@ -2112,18 +2112,18 @@ mwb_batt_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
         gdouble cy = by + (batt_h / 2.0);
 
         cairo_save(cr);
-        cairo_set_line_width(cr, 1.0);
-        cairo_move_to(cr, cx + 0.5, cy - 4.0);
+        cairo_set_line_width(cr, 1.2);
+        cairo_move_to(cr, cx + 1.0, cy - 4.5);
         cairo_line_to(cr, cx - 2.5, cy + 0.5);
-        cairo_line_to(cr, cx + 0.2, cy + 0.5);
-        cairo_line_to(cr, cx - 0.5, cy + 4.0);
+        cairo_line_to(cr, cx + 0.5, cy + 0.5);
+        cairo_line_to(cr, cx - 1.0, cy + 4.5);
         cairo_line_to(cr, cx + 2.5, cy - 0.5);
-        cairo_line_to(cr, cx - 0.2, cy - 0.5);
+        cairo_line_to(cr, cx - 0.5, cy - 0.5);
         cairo_close_path(cr);
 
-        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.95);
+        cairo_set_source_rgba(cr, 1.0, 0.88, 0.12, 1.0); /* Vibrant electric gold */
         cairo_fill_preserve(cr);
-        cairo_set_source_rgba(cr, 0.0, 0.15, 0.35, 0.6);
+        cairo_set_source_rgba(cr, 0.1, 0.1, 0.15, 0.85);  /* High-contrast dark outline */
         cairo_stroke(cr);
         cairo_restore(cr);
     }
@@ -2172,22 +2172,53 @@ mwb_tick_battery(MorphosWorkbenchPlugin *mwb)
         g_free(stat_file);
     }
 
+    /* Check AC online status */
+    gboolean ac_online = FALSE;
+    const gchar *ac_paths[] = {
+        "/sys/class/power_supply/AC",
+        "/sys/class/power_supply/AC0",
+        "/sys/class/power_supply/AC1",
+        "/sys/class/power_supply/ACAD",
+        "/sys/class/power_supply/ADP1",
+        "/sys/class/power_supply/ADP0"
+    };
+    for (i = 0; i < G_N_ELEMENTS(ac_paths); i++) {
+        if (g_file_test(ac_paths[i], G_FILE_TEST_IS_DIR)) {
+            gchar *online_file = g_build_filename(ac_paths[i], "online", NULL);
+            if (g_file_get_contents(online_file, &content, NULL, NULL) && content) {
+                if (atoi(content) == 1)
+                    ac_online = TRUE;
+                g_free(content);
+                content = NULL;
+            }
+            g_free(online_file);
+            if (ac_online)
+                break;
+        }
+    }
+
     if (cap < 0 || !mwb->batt_icon)
         return G_SOURCE_CONTINUE;
 
-    gboolean charging = (g_strcmp0(status, "Charging") == 0);
+    gboolean charging = (g_ascii_strcasecmp(status, "Charging") == 0) ||
+                        (ac_online && g_ascii_strcasecmp(status, "Discharging") != 0);
     mwb->batt_percent = cap;
     mwb->batt_charging = charging;
 
     gtk_widget_queue_draw(mwb->batt_icon);
 
     if (mwb->batt_label) {
-        gchar *txt = g_strdup_printf("%d%%", cap);
+        gchar *txt = charging ?
+            g_strdup_printf("⚡ %d%%", cap) :
+            g_strdup_printf("%d%%", cap);
         gtk_label_set_text(GTK_LABEL(mwb->batt_label), txt);
         g_free(txt);
     }
 
-    gchar *tip = g_strdup_printf(_("Battery: %d%% (%s)"), cap, status[0] ? status : (charging ? _("Charging") : _("Discharging")));
+    gchar *tip = g_strdup_printf(_("Battery: %d%% (%s%s)"),
+                                 cap,
+                                 charging ? _("Charging") : (status[0] ? status : _("Discharging")),
+                                 ac_online ? _(" - AC Connected") : "");
     gtk_widget_set_tooltip_text(mwb->batt_button ? mwb->batt_button : mwb->batt_icon, tip);
     g_free(tip);
     return G_SOURCE_CONTINUE;
@@ -2658,6 +2689,34 @@ mwb_notifications_launch_settings(GtkWidget *btn G_GNUC_UNUSED, gpointer data G_
         g_spawn_command_line_async("xfce4-settings-manager", NULL);
 }
 
+static const gchar *
+mwb_resolve_notification_icon(const gchar *app_name, const gchar *icon_name)
+{
+    GtkIconTheme *theme = gtk_icon_theme_get_default();
+    if (!theme)
+        return "notification-symbolic";
+
+    if (icon_name && *icon_name && gtk_icon_theme_has_icon(theme, icon_name))
+        return icon_name;
+
+    if (app_name && *app_name) {
+        gchar *lower = g_ascii_strdown(app_name, -1);
+        if (gtk_icon_theme_has_icon(theme, lower)) {
+            static gchar cached[64];
+            g_strlcpy(cached, lower, sizeof(cached));
+            g_free(lower);
+            return cached;
+        }
+        g_free(lower);
+    }
+
+    if (gtk_icon_theme_has_icon(theme, "notification-symbolic"))
+        return "notification-symbolic";
+    if (gtk_icon_theme_has_icon(theme, "org.xfce.notification"))
+        return "org.xfce.notification";
+    return "dialog-information";
+}
+
 void
 mwb_notifications_refresh(MorphosWorkbenchPlugin *mwb)
 {
@@ -2700,7 +2759,7 @@ mwb_notifications_refresh(MorphosWorkbenchPlugin *mwb)
         gtk_widget_set_margin_bottom(empty_box, 30);
         gtk_widget_set_halign(empty_box, GTK_ALIGN_CENTER);
 
-        GtkWidget *empty_img = gtk_image_new_from_icon_name("preferences-desktop-notification-bell-symbolic", GTK_ICON_SIZE_DIALOG);
+        GtkWidget *empty_img = gtk_image_new_from_icon_name("notification-symbolic", GTK_ICON_SIZE_DIALOG);
         gtk_image_set_pixel_size(GTK_IMAGE(empty_img), 36);
         gtk_widget_set_opacity(empty_img, 0.45);
         gtk_box_pack_start(GTK_BOX(empty_box), empty_img, FALSE, FALSE, 0);
@@ -2717,6 +2776,8 @@ mwb_notifications_refresh(MorphosWorkbenchPlugin *mwb)
 
         gtk_box_pack_start(GTK_BOX(mwb->notify_list_box), empty_box, TRUE, TRUE, 0);
         gtk_widget_show_all(mwb->notify_list_box);
+        if (mwb->notify_popup && gtk_widget_get_visible(mwb->notify_popup))
+            gtk_window_resize(GTK_WINDOW(mwb->notify_popup), 1, 1);
         return;
     }
 
@@ -2730,7 +2791,8 @@ mwb_notifications_refresh(MorphosWorkbenchPlugin *mwb)
 
         /* Top header row: App Icon, App Name, Time ago, Dismiss button */
         GtkWidget *top_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-        GtkWidget *icon = gtk_image_new_from_icon_name(n->icon_name && *n->icon_name ? n->icon_name : "dialog-information", GTK_ICON_SIZE_MENU);
+        const gchar *icon_name = mwb_resolve_notification_icon(n->app_name, n->icon_name);
+        GtkWidget *icon = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_MENU);
         gtk_image_set_pixel_size(GTK_IMAGE(icon), 20);
         gtk_box_pack_start(GTK_BOX(top_row), icon, FALSE, FALSE, 0);
 
@@ -2906,7 +2968,7 @@ mwb_notify_clicked(GtkWidget *widget G_GNUC_UNUSED, gpointer data)
         gtk_style_context_add_class(gtk_widget_get_style_context(head_card), "mwb-vol-card");
         gtk_widget_set_margin_bottom(head_card, 2);
 
-        GtkWidget *bell_img = gtk_image_new_from_icon_name("preferences-desktop-notification-bell-symbolic", GTK_ICON_SIZE_MENU);
+        GtkWidget *bell_img = gtk_image_new_from_icon_name("notification-symbolic", GTK_ICON_SIZE_MENU);
         gtk_image_set_pixel_size(GTK_IMAGE(bell_img), 20);
         gtk_box_pack_start(GTK_BOX(head_card), bell_img, FALSE, FALSE, 0);
 
@@ -2942,7 +3004,7 @@ mwb_notify_clicked(GtkWidget *widget G_GNUC_UNUSED, gpointer data)
         gtk_style_context_add_class(gtk_widget_get_style_context(foot_card), "mwb-vol-card");
 
         GtkWidget *settings_btn = gtk_button_new_with_label(_("Notification Settings..."));
-        GtkWidget *gear_img = gtk_image_new_from_icon_name("preferences-desktop-notification-bell-symbolic", GTK_ICON_SIZE_MENU);
+        GtkWidget *gear_img = gtk_image_new_from_icon_name("preferences-system-symbolic", GTK_ICON_SIZE_MENU);
         gtk_image_set_pixel_size(GTK_IMAGE(gear_img), 16);
         gtk_button_set_image(GTK_BUTTON(settings_btn), gear_img);
         gtk_button_set_always_show_image(GTK_BUTTON(settings_btn), TRUE);
@@ -2987,6 +3049,8 @@ mwb_init_notification_monitor(MorphosWorkbenchPlugin *mwb)
             GVariantBuilder b;
             g_variant_builder_init(&b, G_VARIANT_TYPE("as"));
             g_variant_builder_add(&b, "s", "type='method_call',member='Notify'");
+            g_variant_builder_add(&b, "s", "type='method_call',interface='org.freedesktop.Notifications'");
+            g_variant_builder_add(&b, "s", "type='method_call',path='/org/freedesktop/Notifications'");
 
             GVariant *res = g_dbus_connection_call_sync(
                 mon,
@@ -3017,7 +3081,7 @@ mwb_build_notifications(MorphosWorkbenchPlugin *mwb)
     gtk_widget_set_valign(mwb->notify_button, GTK_ALIGN_CENTER);
 
     GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-    mwb->notify_icon = gtk_image_new_from_icon_name("preferences-desktop-notification-bell-symbolic", GTK_ICON_SIZE_MENU);
+    mwb->notify_icon = gtk_image_new_from_icon_name("notification-symbolic", GTK_ICON_SIZE_MENU);
     gtk_image_set_pixel_size(GTK_IMAGE(mwb->notify_icon), 16);
     gtk_box_pack_start(GTK_BOX(btn_box), mwb->notify_icon, FALSE, FALSE, 0);
 
