@@ -236,6 +236,7 @@ void        mwb_tracked_launches_clear  (MorphosWorkbenchPlugin *mwb);
 
 /* screenbar.c */
 void        mwb_build_screenbar         (MorphosWorkbenchPlugin *mwb);
+const gchar *mwb_widget_name            (guint widget);
 
 /* config.c */
 void        mwb_save_config             (XfcePanelPlugin *plugin,

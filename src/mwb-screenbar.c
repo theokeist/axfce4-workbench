@@ -859,6 +859,19 @@ mwb_lamp_new(const gchar *tooltip, const gchar *kind_class)
 
 /* Per-widget builders — each returns the widget to pack into the screenbar. */
 
+const gchar *
+mwb_widget_name(guint widget)
+{
+    static const gchar *names[MWB_WIDGET_COUNT] = {
+        N_("Disk lamps"), N_("Network lamps"), N_("Wi-Fi"), N_("Battery"),
+        N_("CPU gauges"), N_("Memory gauge"), N_("Disk gauge"),
+        N_("System info"), N_("Volume"), N_("Clock"),
+    };
+    if (widget >= MWB_WIDGET_COUNT)
+        return "?";
+    return names[widget];
+}
+
 static GtkWidget *
 mwb_build_drivelamps(MorphosWorkbenchPlugin *mwb)
 {
