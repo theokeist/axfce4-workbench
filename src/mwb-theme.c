@@ -119,13 +119,10 @@ static const gchar *MWB_CSS =
   "  padding: 1px 5px;"
   "  border-radius: 4px;"
   "}"
-  ".mwb-vol-card, .mwb-notify-card, .mwb-streams-card {"
-  "  background: transparent !important;"
-  "  background-color: transparent !important;"
-  "  background-image: none !important;"
-  "  border: none !important;"
-  "  box-shadow: none !important;"
-  "  padding: 4px 2px;"
+  ".mwb-vol-card, .mwb-notify-card, .mwb-streams-card, .mwb-batt-card {"
+  "  border-radius: 6px;"
+  "  padding: 8px 10px;"
+  "  margin-bottom: 4px;"
   "}"
   ".mwb-playing-card {"
   "  border-radius: 6px;"
@@ -540,10 +537,11 @@ static const gchar *MWB_CSS =
   "  color: #6ee7b7;"
   "  border: 1px solid alpha(#34d399, 0.6);"
   "}"
-  ".mwb-theme-classic .mwb-vol-card, .mwb-theme-classic .mwb-notify-card, .mwb-theme-classic.mwb-popup .mwb-vol-card {"
-  "  background: transparent;"
-  "  border: none;"
-  "  box-shadow: none;"
+  ".mwb-theme-classic .mwb-vol-card, .mwb-theme-classic .mwb-notify-card, .mwb-theme-classic .mwb-streams-card, .mwb-theme-classic .mwb-batt-card, .mwb-theme-classic.mwb-popup .mwb-vol-card {"
+  "  background-color: rgba(14, 23, 38, 0.75);"
+  "  border: 1px solid rgba(107, 163, 217, 0.22);"
+  "  border-radius: 6px;"
+  "  box-shadow: inset 0 1px 2px alpha(#000000, 0.45);"
   "}"
   ".mwb-theme-classic.mwb-settings, .mwb-theme-classic .mwb-settings, .mwb-theme-classic.mwb-settings stack, .mwb-theme-classic.mwb-settings .stack {"
   "  background-color: #1c2a40;"
@@ -746,10 +744,11 @@ static const gchar *MWB_CSS =
   "  color: #4ade80;"
   "  border: 1px solid alpha(#22c55e, 0.5);"
   "}"
-  ".mwb-theme-dark .mwb-vol-card, .mwb-theme-dark .mwb-notify-card, .mwb-theme-dark.mwb-popup .mwb-vol-card {"
-  "  background: transparent;"
-  "  border: none;"
-  "  box-shadow: none;"
+  ".mwb-theme-dark .mwb-vol-card, .mwb-theme-dark .mwb-notify-card, .mwb-theme-dark .mwb-streams-card, .mwb-theme-dark .mwb-batt-card, .mwb-theme-dark.mwb-popup .mwb-vol-card {"
+  "  background-color: rgba(6, 10, 16, 0.80);"
+  "  border: 1px solid rgba(255, 255, 255, 0.08);"
+  "  border-radius: 6px;"
+  "  box-shadow: inset 0 1px 2px alpha(#000000, 0.60);"
   "}"
   ".mwb-theme-dark.mwb-settings, .mwb-theme-dark .mwb-settings, .mwb-theme-dark.mwb-settings stack, .mwb-theme-dark.mwb-settings .stack {"
   "  background-color: #0d121a;"
@@ -966,10 +965,11 @@ static const gchar *MWB_CSS =
   "  color: #15803d;"
   "  border: 1px solid alpha(#86efac, 0.8);"
   "}"
-  ".mwb-theme-light .mwb-vol-card, .mwb-theme-light .mwb-notify-card, .mwb-theme-light.mwb-popup .mwb-vol-card {"
-  "  background: transparent;"
-  "  border: none;"
-  "  box-shadow: none;"
+  ".mwb-theme-light .mwb-vol-card, .mwb-theme-light .mwb-notify-card, .mwb-theme-light .mwb-streams-card, .mwb-theme-light .mwb-batt-card, .mwb-theme-light.mwb-popup .mwb-vol-card {"
+  "  background-color: rgba(255, 255, 255, 0.85);"
+  "  border: 1px solid rgba(0, 0, 0, 0.12);"
+  "  border-radius: 6px;"
+  "  box-shadow: 0 1px 2px alpha(#000000, 0.05);"
   "}"
   ".mwb-theme-light.mwb-settings, .mwb-theme-light .mwb-settings, .mwb-theme-light.mwb-settings stack, .mwb-theme-light.mwb-settings .stack {"
   "  background-color: #e6ebf2;"
@@ -1138,10 +1138,12 @@ static const gchar *MWB_CSS =
   "  color: @theme_selected_bg_color;"
   "  border: 1px solid alpha(@theme_selected_bg_color, 0.40);"
   "}"
-  ".mwb-theme-system .mwb-vol-card, .mwb-theme-system .mwb-notify-card, .mwb-theme-system.mwb-popup .mwb-vol-card {"
-  "  background: transparent;"
-  "  border: none;"
-  "  box-shadow: none;"
+  ".mwb-theme-system .mwb-vol-card, .mwb-theme-system .mwb-notify-card, .mwb-theme-system .mwb-streams-card, .mwb-theme-system .mwb-batt-card, .mwb-theme-system.mwb-popup .mwb-vol-card {"
+  "  background-color: alpha(@theme_base_color, 0.85);"
+  "  border: 1px solid alpha(@theme_fg_color, 0.14);"
+  "  border-radius: 6px;"
+  "  color: @theme_fg_color;"
+  "  box-shadow: inset 0 1px 2px alpha(#000000, 0.20);"
   "}"
   ".mwb-theme-system .mwb-media-btn, .mwb-theme-system .mwb-gear-btn, .mwb-theme-system .mwb-notify-dismiss {"
   "  background-color: alpha(@theme_fg_color, 0.08);"
@@ -1393,6 +1395,7 @@ mwb_apply_menu_opacity(MorphosWorkbenchPlugin *mwb)
 {
     static GtkCssProvider *provider = NULL;
     gdouble alpha;
+    gdouble card_alpha;
     gchar *css;
 
     /* remove the previous provider so the new opacity actually takes effect */
@@ -1406,6 +1409,7 @@ mwb_apply_menu_opacity(MorphosWorkbenchPlugin *mwb)
     mwb_add_provider_to_all_screens(provider, GTK_STYLE_PROVIDER_PRIORITY_USER + 50);
 
     alpha = CLAMP(mwb->menu_opacity, 0, 100) / 100.0;
+    card_alpha = CLAMP(alpha * 0.80 + 0.20, 0.45, 1.0);
     css = g_strdup_printf(
         "window.popup, window.popup > menu, window.background.popup, window.menu, .mwb-menu-window {\n"
         "  background: transparent !important;\n"
@@ -1419,12 +1423,20 @@ mwb_apply_menu_opacity(MorphosWorkbenchPlugin *mwb)
         "  border: 1px solid #0a1526 !important;\n"
         "  box-shadow: 0 10px 28px rgba(0,0,0,0.65) !important;\n"
         "}\n"
+        ".mwb-theme-classic .mwb-vol-card, .mwb-theme-classic .mwb-notify-card, .mwb-theme-classic .mwb-streams-card, .mwb-theme-classic .mwb-batt-card, .mwb-theme-classic.mwb-popup .mwb-vol-card {\n"
+        "  background-color: rgba(14, 23, 38, %.3f) !important;\n"
+        "  border: 1px solid rgba(107, 163, 217, 0.22) !important;\n"
+        "}\n"
         ".mwb-theme-dark.mwb-menu, .mwb-theme-dark .mwb-menu, menu.mwb-theme-dark, .mwb-theme-dark.mwb-menu-applications, .mwb-theme-dark.mwb-menu-workbench, .mwb-theme-dark.mwb-menu-ambient, .mwb-theme-dark.mwb-menu-icons, .mwb-theme-dark.mwb-menu-disk,\n"
         ".mwb-theme-dark.mwb-popup, .mwb-theme-dark .mwb-popup, .mwb-theme-dark.mwb-vol-popup, .mwb-theme-dark .mwb-vol-popup, window.mwb-theme-dark.mwb-popup, window.mwb-theme-dark.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
         "  background-image: linear-gradient(to bottom, rgba(26, 32, 44, %.3f) 0%%, rgba(12, 17, 25, %.3f) 100%%) !important;\n"
         "  background-color: rgba(12, 17, 25, %.3f) !important;\n"
         "  border: 1px solid #000000 !important;\n"
         "  box-shadow: 0 10px 28px rgba(0,0,0,0.75) !important;\n"
+        "}\n"
+        ".mwb-theme-dark .mwb-vol-card, .mwb-theme-dark .mwb-notify-card, .mwb-theme-dark .mwb-streams-card, .mwb-theme-dark .mwb-batt-card, .mwb-theme-dark.mwb-popup .mwb-vol-card {\n"
+        "  background-color: rgba(6, 10, 16, %.3f) !important;\n"
+        "  border: 1px solid rgba(255, 255, 255, 0.08) !important;\n"
         "}\n"
         ".mwb-theme-light.mwb-menu, .mwb-theme-light .mwb-menu, menu.mwb-theme-light, .mwb-theme-light.mwb-menu-applications, .mwb-theme-light.mwb-menu-workbench, .mwb-theme-light.mwb-menu-ambient, .mwb-theme-light.mwb-menu-icons, .mwb-theme-light.mwb-menu-disk,\n"
         ".mwb-theme-light.mwb-popup, .mwb-theme-light .mwb-popup, .mwb-theme-light.mwb-vol-popup, .mwb-theme-light .mwb-vol-popup, window.mwb-theme-light.mwb-popup, window.mwb-theme-light.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
@@ -1433,23 +1445,28 @@ mwb_apply_menu_opacity(MorphosWorkbenchPlugin *mwb)
         "  border: 1px solid #bcc6d2 !important;\n"
         "  box-shadow: 0 10px 28px rgba(0,0,0,0.20) !important;\n"
         "}\n"
+        ".mwb-theme-light .mwb-vol-card, .mwb-theme-light .mwb-notify-card, .mwb-theme-light .mwb-streams-card, .mwb-theme-light .mwb-batt-card, .mwb-theme-light.mwb-popup .mwb-vol-card {\n"
+        "  background-color: rgba(255, 255, 255, %.3f) !important;\n"
+        "  border: 1px solid rgba(0, 0, 0, 0.12) !important;\n"
+        "}\n"
         ".mwb-theme-system.mwb-menu, .mwb-theme-system .mwb-menu, menu.mwb-theme-system, .mwb-theme-system.mwb-menu-applications, .mwb-theme-system.mwb-menu-workbench, .mwb-theme-system.mwb-menu-ambient, .mwb-theme-system.mwb-menu-icons, .mwb-theme-system.mwb-menu-disk,\n"
         ".mwb-theme-system.mwb-popup, .mwb-theme-system .mwb-popup, .mwb-theme-system.mwb-vol-popup, .mwb-theme-system .mwb-vol-popup, window.mwb-theme-system.mwb-popup, window.mwb-theme-system.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
         "  background-color: alpha(@theme_bg_color, %.3f) !important;\n"
         "  border: 1px solid alpha(@theme_fg_color, 0.20) !important;\n"
         "  box-shadow: 0 10px 28px rgba(0,0,0,0.40) !important;\n"
         "}\n"
-        ".mwb-vol-card, .mwb-notify-card, .mwb-streams-card {\n"
-        "  background: transparent !important;\n"
-        "  background-color: transparent !important;\n"
-        "  background-image: none !important;\n"
-        "  border: none !important;\n"
-        "  box-shadow: none !important;\n"
+        ".mwb-theme-system .mwb-vol-card, .mwb-theme-system .mwb-notify-card, .mwb-theme-system .mwb-streams-card, .mwb-theme-system .mwb-batt-card, .mwb-theme-system.mwb-popup .mwb-vol-card {\n"
+        "  background-color: alpha(@theme_base_color, %.3f) !important;\n"
+        "  border: 1px solid alpha(@theme_fg_color, 0.14) !important;\n"
         "}\n",
         alpha, alpha, alpha,
+        card_alpha,
         alpha, alpha, alpha,
+        card_alpha,
         alpha, alpha, alpha,
-        alpha);
+        card_alpha,
+        alpha,
+        card_alpha);
     gtk_css_provider_load_from_data(provider, css, -1, NULL);
     g_free(css);
 }

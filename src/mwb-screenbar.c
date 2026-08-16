@@ -1189,6 +1189,7 @@ mwb_volume_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
         gtk_widget_set_size_request(mwb->volume_popup, 340, -1);
         gtk_style_context_add_class(gtk_widget_get_style_context(mwb->volume_popup), "mwb-popup");
         gtk_style_context_add_class(gtk_widget_get_style_context(mwb->volume_popup), "mwb-vol-popup");
+        gtk_widget_set_name(mwb->volume_popup, "mwb-volume-pop");
         mwb_theme_widget(mwb, mwb->volume_popup);
 
         GtkWidget *root_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
