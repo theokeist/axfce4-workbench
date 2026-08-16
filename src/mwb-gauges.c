@@ -95,7 +95,7 @@ mwb_gauge_draw_industrial(cairo_t *cr, MwbGaugeData *gd, gdouble w, gdouble h, g
     cairo_rounded_rectangle(cr, 0.5, 0.5, w - 1, h - 1, radius);
     cairo_fill(cr);
 
-    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, light ? 0.55 : 0.22);
+    cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, light ? 0.20 : 0.60);
     cairo_rounded_rectangle(cr, 0.5, 0.5, w - 1, h - 1, radius);
     cairo_set_line_width(cr, 1.0);
     cairo_stroke(cr);
@@ -150,13 +150,8 @@ mwb_gauge_draw_3d(cairo_t *cr, MwbGaugeData *gd, gdouble w, gdouble h, gboolean 
     cairo_fill(cr);
 
     cairo_set_line_width(cr, 1.0);
-    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, light ? 0.95 : 0.55);
-    cairo_move_to(cr, radius, 1.0);
-    cairo_line_to(cr, w - radius, 1.0);
-    cairo_stroke(cr);
-    cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, light ? 0.4 : 0.85);
-    cairo_move_to(cr, radius, h - 1.0);
-    cairo_line_to(cr, w - radius, h - 1.0);
+    cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, light ? 0.20 : 0.60);
+    cairo_rounded_rectangle(cr, 0.5, 0.5, w - 1, h - 1, radius);
     cairo_stroke(cr);
 
     /* sunken, vertically shaded inner well */
