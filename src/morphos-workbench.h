@@ -191,6 +191,7 @@ typedef struct {
     guint64          disk_prev_sects[2];
     guint            vol_percent;
     gint             widget_order[MWB_WIDGET_COUNT]; /* screenbar display order */
+    GtkWidget       *widget_widgets[MWB_WIDGET_COUNT]; /* per-widget slot containers */
 } MorphosWorkbenchPlugin;
 
 /* theme.c */
@@ -236,6 +237,7 @@ void        mwb_tracked_launches_clear  (MorphosWorkbenchPlugin *mwb);
 
 /* screenbar.c */
 void        mwb_build_screenbar         (MorphosWorkbenchPlugin *mwb);
+void        mwb_apply_widget_order      (MorphosWorkbenchPlugin *mwb);
 const gchar *mwb_widget_name            (guint widget);
 
 /* config.c */

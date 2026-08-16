@@ -1049,12 +1049,16 @@ mwb_build_screenbar(MorphosWorkbenchPlugin *mwb)
     for (i = 0; i < MWB_WIDGET_COUNT; i++) {
         MorphosWorkbenchWidget w = (MorphosWorkbenchWidget)mwb->widget_order[i];
         GtkWidget *wgt;
+        GtkWidget *slot;
         if (!mwb_widget_enabled(mwb, w))
             continue;
         wgt = mwb_build_widget(mwb, w);
         if (wgt) {
-            gtk_box_pack_start(GTK_BOX(right), wgt, FALSE, FALSE, 0);
-            gtk_box_pack_start(GTK_BOX(right), mwb_screenbar_divider(), FALSE, FALSE, 0);
+            slot = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+            gtk_box_pack_start(GTK_BOX(slot), wgt, FALSE, FALSE, 0);
+            gtk_box_pack_start(GTK_BOX(slot), mwb_screenbar_divider(), FALSE, FALSE, 0);
+            gtk_box_pack_start(GTK_BOX(right), slot, FALSE, FALSE, 0);
+            mwb->widget_widgets[w] = slot;
         }
     }
 
@@ -1093,5 +1097,27 @@ mwb_build_screenbar(MorphosWorkbenchPlugin *mwb)
     if (mwb->show_volume) {
         mwb_volume_refresh(mwb);
         mwb->vol_timeout = g_timeout_add_seconds(5, (GSourceFunc)mwb_tick_volume, mwb);
+    }
+}
+
+void
+mwb_apply_widget_order(MorphosWorkbenchPlugin *mwb)
+{
+    GtkWidget *right = mwb->screenbar;
+    gint i, pos = 0;
+
+    if (!right)
+        return;
+
+    for (i = 0; i < MWB_WIDGET_COUNT; i++) {
+        MorphosWorkbenchWidget w = (MorphosWorkbenchWidget)mwb->widget_order[i];
+        GtkWidget *slot = mwb->widget_widgets[w];
+
+        if (!slot)
+            continue;
+
+        gtk_widget_set_visible(slot, mwb_widget_enabled(mwb, w));
+        gtk_box_reorder_child(GTK_BOX(right), slot, pos);
+        pos++;
     }
 }

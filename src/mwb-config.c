@@ -148,21 +148,7 @@ mwb_load_config(MorphosWorkbenchPlugin *mwb)
     mwb_apply_theme(mwb);
     mwb_apply_logo(mwb);
     mwb_apply_left_visibility(mwb);
-
-    if (mwb->clock_button)
-        gtk_widget_set_visible(mwb->clock_button, mwb->show_clock);
-    if (mwb->mem_gauge)
-        gtk_widget_set_visible(mwb->mem_gauge, mwb->show_membar);
-    if (mwb->disk_gauge)
-        gtk_widget_set_visible(mwb->disk_gauge, mwb->show_diskgauge);
-    if (mwb->vol_button)
-        gtk_widget_set_visible(mwb->vol_button, mwb->show_volume);
-    if (mwb->nm_plugin)
-        gtk_widget_set_visible(mwb->nm_plugin, mwb->show_wifi);
-    if (mwb->batt_button)
-        gtk_widget_set_visible(mwb->batt_button, mwb->show_battery);
-    if (mwb->sys_button)
-        gtk_widget_set_visible(mwb->sys_button, mwb->show_sysinfo);
+    mwb_apply_widget_order(mwb);
 }
 
 /* ------------------------------------------------------------------ *
@@ -483,17 +469,7 @@ mwb_configure_plugin(XfcePanelPlugin *plugin, MorphosWorkbenchPlugin *mwb)
         mwb_apply_logo(mwb);
         mwb_apply_left_visibility(mwb);
         mwb_update_title(mwb);
-
-        if (mwb->clock_button)
-            gtk_widget_set_visible(mwb->clock_button, mwb->show_clock);
-        if (mwb->nm_plugin)
-            gtk_widget_set_visible(mwb->nm_plugin, mwb->show_wifi);
-        if (mwb->batt_button)
-            gtk_widget_set_visible(mwb->batt_button, mwb->show_battery);
-        if (mwb->sys_button)
-            gtk_widget_set_visible(mwb->sys_button, mwb->show_sysinfo);
-        if (mwb->vol_button)
-            gtk_widget_set_visible(mwb->vol_button, mwb->show_volume);
+        mwb_apply_widget_order(mwb);
 
         mwb_save_config(plugin, mwb);
 
