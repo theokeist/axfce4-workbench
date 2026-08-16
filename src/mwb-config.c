@@ -430,6 +430,7 @@ mwb_configure_plugin(XfcePanelPlugin *plugin, MorphosWorkbenchPlugin *mwb)
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(theme_combo), NULL, _("Classic (Ambient dark-blue)"));
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(theme_combo), NULL, _("Dark (sleek near-black)"));
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(theme_combo), NULL, _("Light (silver metal)"));
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(theme_combo), NULL, _("System (follow desktop theme)"));
     gtk_combo_box_set_active(GTK_COMBO_BOX(theme_combo), mwb->theme);
     g_signal_connect(theme_combo, "changed", G_CALLBACK(mwb_settings_theme_changed), mwb);
 

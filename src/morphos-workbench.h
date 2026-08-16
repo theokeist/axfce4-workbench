@@ -88,6 +88,7 @@ typedef enum {
     MWB_THEME_CLASSIC,   /* original Ambient dark-blue */
     MWB_THEME_DARK,      /* sleek near-black */
     MWB_THEME_LIGHT,     /* silver / light-grey */
+    MWB_THEME_SYSTEM,    /* follow desktop system GTK theme */
     MWB_THEME_COUNT
 } MorphosWorkbenchTheme;
 

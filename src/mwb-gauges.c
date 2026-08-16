@@ -277,6 +277,22 @@ mwb_gauge_draw_plain(cairo_t *cr, MwbGaugeData *gd, gdouble w, gdouble h, gboole
 }
 
 static gboolean
+mwb_check_is_light(GtkWidget *widget, MorphosWorkbenchTheme theme)
+{
+    if (theme == MWB_THEME_LIGHT)
+        return TRUE;
+    if (theme == MWB_THEME_SYSTEM && widget != NULL) {
+        GtkStyleContext *ctx = gtk_widget_get_style_context(widget);
+        GdkRGBA bg;
+        if (gtk_style_context_lookup_color(ctx, "theme_bg_color", &bg)) {
+            gdouble lum = 0.299 * bg.red + 0.587 * bg.green + 0.114 * bg.blue;
+            return lum > 0.5;
+        }
+    }
+    return FALSE;
+}
+
+static gboolean
 mwb_gauge_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
     MwbGaugeData *gd = data;
@@ -287,7 +303,7 @@ mwb_gauge_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     gtk_widget_get_allocation(widget, &alloc);
     w = alloc.width;
     h = alloc.height;
-    light = (gd->theme == MWB_THEME_LIGHT);
+    light = mwb_check_is_light(widget, gd->theme);
 
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
 

@@ -2263,6 +2263,14 @@ mwb_batt_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     gdouble by = floor((h - batt_h) / 2.0) + 0.5;
 
     gboolean light = (mwb->theme == MWB_THEME_LIGHT);
+    if (mwb->theme == MWB_THEME_SYSTEM && widget != NULL) {
+        GtkStyleContext *ctx = gtk_widget_get_style_context(widget);
+        GdkRGBA bg;
+        if (gtk_style_context_lookup_color(ctx, "theme_bg_color", &bg)) {
+            gdouble lum = 0.299 * bg.red + 0.587 * bg.green + 0.114 * bg.blue;
+            light = (lum > 0.5);
+        }
+    }
 
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
 
