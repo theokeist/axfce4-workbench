@@ -2634,7 +2634,6 @@ mwb_build_drivelamps(MorphosWorkbenchPlugin *mwb)
     GtkWidget *diskbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
     guint d;
     gtk_style_context_add_class(gtk_widget_get_style_context(diskbox), "mwb-island");
-    gtk_style_context_add_class(gtk_widget_get_style_context(diskbox), "mwb-screenbar-pill");
     gtk_widget_set_valign(diskbox, GTK_ALIGN_CENTER);
     for (d = 0; d < 2; d++) {
         mwb->disk_lamps[d] = mwb_lamp_new(_("Disk activity"), "disk");
@@ -2648,7 +2647,6 @@ mwb_build_netlamps(MorphosWorkbenchPlugin *mwb)
 {
     GtkWidget *netbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
     gtk_style_context_add_class(gtk_widget_get_style_context(netbox), "mwb-island");
-    gtk_style_context_add_class(gtk_widget_get_style_context(netbox), "mwb-screenbar-pill");
     gtk_widget_set_valign(netbox, GTK_ALIGN_CENTER);
     mwb->net_lamps[MWB_LAMP_NET_TX] = mwb_lamp_new(_("Network transmit"), "net");
     gtk_box_pack_start(GTK_BOX(netbox), mwb->net_lamps[MWB_LAMP_NET_TX], FALSE, FALSE, 0);
@@ -2725,40 +2723,22 @@ mwb_build_cpu(MorphosWorkbenchPlugin *mwb)
         nc = 1;
     mwb->cpu_ncores = nc;
 
-    GtkWidget *cpurow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-    gtk_style_context_add_class(gtk_widget_get_style_context(cpurow), "mwb-island");
-    gtk_style_context_add_class(gtk_widget_get_style_context(cpurow), "mwb-gauge-island");
-    gtk_style_context_add_class(gtk_widget_get_style_context(cpurow), "mwb-screenbar-pill");
-    gtk_widget_set_valign(cpurow, GTK_ALIGN_CENTER);
     mwb->cpu_gauges[0] = mwb_gauge_new(MWB_GAUGE_CPU, _("CPU"), mwb->theme, mwb->gauge_style);
-    gtk_box_pack_start(GTK_BOX(cpurow), mwb->cpu_gauges[0], FALSE, FALSE, 0);
-    return cpurow;
+    return mwb->cpu_gauges[0];
 }
 
 static GtkWidget *
 mwb_build_mem(MorphosWorkbenchPlugin *mwb)
 {
-    GtkWidget *memrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-    gtk_style_context_add_class(gtk_widget_get_style_context(memrow), "mwb-island");
-    gtk_style_context_add_class(gtk_widget_get_style_context(memrow), "mwb-gauge-island");
-    gtk_style_context_add_class(gtk_widget_get_style_context(memrow), "mwb-screenbar-pill");
-    gtk_widget_set_valign(memrow, GTK_ALIGN_CENTER);
     mwb->mem_gauge = mwb_gauge_new(MWB_GAUGE_MEM, _("RAM"), mwb->theme, mwb->gauge_style);
-    gtk_box_pack_start(GTK_BOX(memrow), mwb->mem_gauge, FALSE, FALSE, 0);
-    return memrow;
+    return mwb->mem_gauge;
 }
 
 static GtkWidget *
 mwb_build_diskgauge(MorphosWorkbenchPlugin *mwb)
 {
-    GtkWidget *diskrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-    gtk_style_context_add_class(gtk_widget_get_style_context(diskrow), "mwb-island");
-    gtk_style_context_add_class(gtk_widget_get_style_context(diskrow), "mwb-gauge-island");
-    gtk_style_context_add_class(gtk_widget_get_style_context(diskrow), "mwb-screenbar-pill");
-    gtk_widget_set_valign(diskrow, GTK_ALIGN_CENTER);
     mwb->disk_gauge = mwb_gauge_new(MWB_GAUGE_DISK, _("DISK"), mwb->theme, mwb->gauge_style);
-    gtk_box_pack_start(GTK_BOX(diskrow), mwb->disk_gauge, FALSE, FALSE, 0);
-    return diskrow;
+    return mwb->disk_gauge;
 }
 
 static GtkWidget *
