@@ -147,6 +147,21 @@ typedef struct {
     GtkWidget       *batt_label;      /* battery percentage label */
     gint             batt_percent;    /* 0-100 */
     gboolean         batt_charging;   /* AC connected / charging */
+    gchar            batt_status_str[32]; /* status: Charging, Discharging, Full */
+    gchar            batt_tech_str[32];   /* technology: Li-ion */
+    gdouble          batt_voltage_val;    /* voltage in Volts */
+    gint             batt_cycle_val;      /* cycle count */
+    gchar            batt_profile_str[32];/* current power profile */
+    GtkWidget       *batt_pop_gauge;      /* large horizontal battery bar inside popover */
+    GtkWidget       *batt_pop_pct_lbl;    /* percentage label inside popover */
+    GtkWidget       *batt_pop_state_lbl;  /* state / power source label */
+    GtkWidget       *batt_pop_badge;      /* status badge inside popover header */
+    GtkWidget       *batt_prof_saver_btn; /* power saver button */
+    GtkWidget       *batt_prof_bal_btn;   /* balanced button */
+    GtkWidget       *batt_prof_perf_btn;  /* performance button */
+    GtkWidget       *batt_pop_tech_lbl;   /* technology label */
+    GtkWidget       *batt_pop_volt_lbl;   /* voltage label */
+    GtkWidget       *batt_pop_cycle_lbl;  /* cycles label */
     GtkWidget       *sys_button;      /* system info button */
     GtkWidget       *vol_button;      /* volume button on screenbar */
     GtkWidget       *vol_icon;        /* volume icon image */

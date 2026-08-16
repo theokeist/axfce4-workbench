@@ -33,6 +33,27 @@
 #include <sqlite3.h>
 #endif
 
+static void
+cairo_rounded_rectangle(cairo_t *cr, gdouble x, gdouble y, gdouble w, gdouble h, gdouble r)
+{
+    cairo_new_path(cr);
+    if (r < 1.0) {
+        cairo_rectangle(cr, x, y, w, h);
+        return;
+    }
+    r = MIN(r, MIN(w / 2.0, h / 2.0));
+    cairo_move_to(cr, x + r, y);
+    cairo_line_to(cr, x + w - r, y);
+    cairo_arc(cr, x + w - r, y + r, r, -G_PI_2, 0);
+    cairo_line_to(cr, x + w, y + h - r);
+    cairo_arc(cr, x + w - r, y + h - r, r, 0, G_PI_2);
+    cairo_line_to(cr, x + r, y + h);
+    cairo_arc(cr, x + r, y + h - r, r, G_PI_2, G_PI);
+    cairo_line_to(cr, x, y + r);
+    cairo_arc(cr, x + r, y + r, r, G_PI, -G_PI_2);
+    cairo_close_path(cr);
+}
+
 /* ------------------------------------------------------------------ *
  *  Popup window helper (proper seat grab, outside-click dismiss)
  *  ------------------------------------------------------------------ */
@@ -1440,6 +1461,164 @@ mwb_batt_settings_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugi
     mwb_launch("xfce4-power-manager-settings || mate-power-preferences || gnome-control-center power");
 }
 
+static gboolean
+mwb_batt_bar_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+    MorphosWorkbenchPlugin *mwb = (MorphosWorkbenchPlugin *)data;
+    gint w = gtk_widget_get_allocated_width(widget);
+    gint h = gtk_widget_get_allocated_height(widget);
+    if (w < 12 || h < 8)
+        return FALSE;
+
+    gdouble radius = 4.0;
+    gdouble bw = w - 9.0; /* leave room for battery terminal tip */
+    gdouble bh = h - 2.0;
+    gdouble bx = 1.0;
+    gdouble by = 1.0;
+
+    /* Sunken battery casing / frame */
+    cairo_pattern_t *casing = cairo_pattern_create_linear(bx, by, bx, by + bh);
+    cairo_pattern_add_color_stop_rgba(casing, 0.0, 0.02, 0.04, 0.08, 0.95);
+    cairo_pattern_add_color_stop_rgba(casing, 1.0, 0.08, 0.12, 0.18, 0.95);
+    cairo_set_source(cr, casing);
+    cairo_rounded_rectangle(cr, bx, by, bw, bh, radius);
+    cairo_fill(cr);
+    cairo_pattern_destroy(casing);
+
+    /* Battery positive terminal nub on right */
+    gdouble tip_w = 4.0;
+    gdouble tip_h = bh * 0.45;
+    gdouble tip_x = bx + bw;
+    gdouble tip_y = by + (bh - tip_h) / 2.0;
+    cairo_rounded_rectangle(cr, tip_x, tip_y, tip_w, tip_h, 1.5);
+    cairo_set_source_rgba(cr, 0.45, 0.55, 0.68, 0.85);
+    cairo_fill(cr);
+
+    /* Inner level fill */
+    gdouble pad = 2.0;
+    gdouble max_fill_w = bw - (pad * 2.0);
+    gdouble fill_h = bh - (pad * 2.0);
+    gdouble pct = CLAMP(mwb->batt_percent, 0, 100) / 100.0;
+    gdouble fill_w = max_fill_w * pct;
+
+    if (fill_w > 1.0) {
+        cairo_pattern_t *fill_pat = cairo_pattern_create_linear(bx + pad, by + pad, bx + pad + fill_w, by + pad);
+        if (mwb->batt_charging) {
+            /* Neon Electric Cyan -> Sapphire Blue */
+            cairo_pattern_add_color_stop_rgb(fill_pat, 0.0, 0.0, 0.95, 0.99);
+            cairo_pattern_add_color_stop_rgb(fill_pat, 1.0, 0.31, 0.67, 0.99);
+        } else if (mwb->batt_percent >= 40) {
+            /* Vibrant Emerald Green */
+            cairo_pattern_add_color_stop_rgb(fill_pat, 0.0, 0.29, 0.87, 0.50);
+            cairo_pattern_add_color_stop_rgb(fill_pat, 1.0, 0.09, 0.64, 0.29);
+        } else if (mwb->batt_percent >= 15) {
+            /* Amber Gold */
+            cairo_pattern_add_color_stop_rgb(fill_pat, 0.0, 0.98, 0.75, 0.14);
+            cairo_pattern_add_color_stop_rgb(fill_pat, 1.0, 0.85, 0.47, 0.02);
+        } else {
+            /* Ruby Red */
+            cairo_pattern_add_color_stop_rgb(fill_pat, 0.0, 0.97, 0.44, 0.44);
+            cairo_pattern_add_color_stop_rgb(fill_pat, 1.0, 0.86, 0.15, 0.15);
+        }
+
+        cairo_rounded_rectangle(cr, bx + pad, by + pad, fill_w, fill_h, 2.0);
+        cairo_set_source(cr, fill_pat);
+        cairo_fill(cr);
+        cairo_pattern_destroy(fill_pat);
+
+        /* Cylindrical reflection gloss */
+        cairo_save(cr);
+        cairo_rounded_rectangle(cr, bx + pad, by + pad, fill_w, fill_h, 2.0);
+        cairo_clip(cr);
+        cairo_pattern_t *gloss = cairo_pattern_create_linear(0, by + pad, 0, by + pad + fill_h);
+        cairo_pattern_add_color_stop_rgba(gloss, 0.0, 1.0, 1.0, 1.0, 0.45);
+        cairo_pattern_add_color_stop_rgba(gloss, 0.35, 1.0, 1.0, 1.0, 0.05);
+        cairo_pattern_add_color_stop_rgba(gloss, 0.65, 0.0, 0.0, 0.0, 0.05);
+        cairo_pattern_add_color_stop_rgba(gloss, 1.0, 0.0, 0.0, 0.0, 0.35);
+        cairo_set_source(cr, gloss);
+        cairo_paint(cr);
+        cairo_pattern_destroy(gloss);
+        cairo_restore(cr);
+    }
+
+    /* Metallic bevel outline */
+    cairo_rounded_rectangle(cr, bx + 0.5, by + 0.5, bw - 1.0, bh - 1.0, radius);
+    cairo_set_source_rgba(cr, 0.45, 0.58, 0.75, 0.55);
+    cairo_set_line_width(cr, 1.0);
+    cairo_stroke(cr);
+
+    /* Electric Gold Lightning bolt if charging */
+    if (mwb->batt_charging) {
+        gdouble cx = bx + (bw / 2.0);
+        gdouble cy = by + (bh / 2.0);
+        cairo_save(cr);
+        cairo_set_line_width(cr, 1.2);
+        cairo_move_to(cr, cx + 1.5, cy - 5.0);
+        cairo_line_to(cr, cx - 3.0, cy + 0.5);
+        cairo_line_to(cr, cx + 0.5, cy + 0.5);
+        cairo_line_to(cr, cx - 1.5, cy + 5.0);
+        cairo_line_to(cr, cx + 3.0, cy - 0.5);
+        cairo_line_to(cr, cx - 0.5, cy - 0.5);
+        cairo_close_path(cr);
+
+        cairo_set_source_rgba(cr, 1.0, 0.90, 0.15, 1.0);
+        cairo_fill_preserve(cr);
+        cairo_set_source_rgba(cr, 0.05, 0.08, 0.15, 0.90);
+        cairo_stroke(cr);
+        cairo_restore(cr);
+    }
+
+    return FALSE;
+}
+
+static void
+mwb_set_power_profile(MorphosWorkbenchPlugin *mwb, const gchar *profile)
+{
+    if (!profile || !*profile)
+        return;
+
+    gchar *cmd = g_strdup_printf("powerprofilesctl set %s", profile);
+    mwb_launch(cmd);
+    g_free(cmd);
+
+    g_strlcpy(mwb->batt_profile_str, profile, sizeof(mwb->batt_profile_str));
+
+    if (mwb->batt_prof_saver_btn && mwb->batt_prof_bal_btn && mwb->batt_prof_perf_btn) {
+        GtkStyleContext *sc_sav = gtk_widget_get_style_context(mwb->batt_prof_saver_btn);
+        GtkStyleContext *sc_bal = gtk_widget_get_style_context(mwb->batt_prof_bal_btn);
+        GtkStyleContext *sc_prf = gtk_widget_get_style_context(mwb->batt_prof_perf_btn);
+
+        gtk_style_context_remove_class(sc_sav, "mwb-media-play-btn");
+        gtk_style_context_remove_class(sc_bal, "mwb-media-play-btn");
+        gtk_style_context_remove_class(sc_prf, "mwb-media-play-btn");
+
+        if (g_strcmp0(profile, "power-saver") == 0)
+            gtk_style_context_add_class(sc_sav, "mwb-media-play-btn");
+        else if (g_strcmp0(profile, "performance") == 0)
+            gtk_style_context_add_class(sc_prf, "mwb-media-play-btn");
+        else
+            gtk_style_context_add_class(sc_bal, "mwb-media-play-btn");
+    }
+}
+
+static void
+mwb_batt_prof_saver_clicked(GtkButton *b G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
+{
+    mwb_set_power_profile(mwb, "power-saver");
+}
+
+static void
+mwb_batt_prof_bal_clicked(GtkButton *b G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
+{
+    mwb_set_power_profile(mwb, "balanced");
+}
+
+static void
+mwb_batt_prof_perf_clicked(GtkButton *b G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
+{
+    mwb_set_power_profile(mwb, "performance");
+}
+
 static void
 mwb_batt_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
 {
@@ -1466,12 +1645,15 @@ mwb_batt_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
         gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_popup), "mwb-vol-popup");
         mwb_theme_widget(mwb, mwb->batt_popup);
 
-        GtkWidget *root_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-        gtk_container_set_border_width(GTK_CONTAINER(root_box), 12);
+        GtkWidget *root_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+        gtk_container_set_border_width(GTK_CONTAINER(root_box), 10);
 
-        /* Header: Icon + Title + State Badge */
-        GtkWidget *hdr = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-        GtkWidget *hdr_icon = gtk_image_new_from_icon_name("battery-full-symbolic", GTK_ICON_SIZE_MENU);
+        /* Header: Icon + Title + State Badge + Small Settings Button */
+        GtkWidget *hdr = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+        GtkWidget *hdr_icon = gtk_image_new_from_icon_name(
+            mwb->batt_charging ? "battery-good-charging-symbolic" : "battery-full-symbolic",
+            GTK_ICON_SIZE_MENU);
+        gtk_image_set_pixel_size(GTK_IMAGE(hdr_icon), 16);
         gtk_style_context_add_class(gtk_widget_get_style_context(hdr_icon), "mwb-pop-icon");
         gtk_box_pack_start(GTK_BOX(hdr), hdr_icon, FALSE, FALSE, 0);
 
@@ -1481,36 +1663,142 @@ mwb_batt_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
         gtk_box_pack_start(GTK_BOX(hdr), lbl, TRUE, TRUE, 0);
 
         const gchar *status_str = mwb->batt_charging ? _("Charging") : (mwb->batt_percent >= 95 ? _("Fully Charged") : _("Discharging"));
-        GtkWidget *badge = gtk_label_new(status_str);
-        gtk_style_context_add_class(gtk_widget_get_style_context(badge), "mwb-vol-badge");
-        gtk_box_pack_start(GTK_BOX(hdr), badge, FALSE, FALSE, 0);
+        mwb->batt_pop_badge = gtk_label_new(status_str);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_pop_badge), "mwb-vol-badge");
+        if (mwb->batt_charging)
+            gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_pop_badge), "mwb-badge-playing");
+        gtk_box_pack_start(GTK_BOX(hdr), mwb->batt_pop_badge, FALSE, FALSE, 0);
+
+        /* Small MorphOS Settings Button */
+        GtkWidget *settings_btn = gtk_button_new();
+        gtk_button_set_relief(GTK_BUTTON(settings_btn), GTK_RELIEF_NONE);
+        gtk_style_context_add_class(gtk_widget_get_style_context(settings_btn), "mwb-media-btn");
+        gtk_style_context_add_class(gtk_widget_get_style_context(settings_btn), "mwb-gear-btn");
+        GtkWidget *gear_img = gtk_image_new_from_icon_name("preferences-system-symbolic", GTK_ICON_SIZE_MENU);
+        gtk_image_set_pixel_size(GTK_IMAGE(gear_img), 14);
+        gtk_container_add(GTK_CONTAINER(settings_btn), gear_img);
+        gtk_widget_set_tooltip_text(settings_btn, _("Power Management Settings..."));
+        g_signal_connect(settings_btn, "clicked", G_CALLBACK(mwb_batt_settings_clicked), mwb);
+        gtk_box_pack_start(GTK_BOX(hdr), settings_btn, FALSE, FALSE, 0);
+
         gtk_box_pack_start(GTK_BOX(root_box), hdr, FALSE, FALSE, 0);
 
-        /* Card 1: Main Battery Level Card */
+        /* Card 1: Main Battery Level & 3D Gauge Card */
         GtkWidget *card1 = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
         gtk_style_context_add_class(gtk_widget_get_style_context(card1), "mwb-vol-card");
-        gtk_container_set_border_width(GTK_CONTAINER(card1), 10);
+        gtk_container_set_border_width(GTK_CONTAINER(card1), 8);
 
         GtkWidget *stat_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-        gchar *pct_txt = g_strdup_printf("%d%%", CLAMP(mwb->batt_percent, 0, 100));
-        GtkWidget *pct_lbl = gtk_label_new(pct_txt);
-        gtk_style_context_add_class(gtk_widget_get_style_context(pct_lbl), "mwb-pop-title");
-        gtk_box_pack_start(GTK_BOX(stat_row), pct_lbl, FALSE, FALSE, 0);
+        gchar *pct_txt = mwb->batt_charging ?
+            g_strdup_printf("⚡ %d%%", CLAMP(mwb->batt_percent, 0, 100)) :
+            g_strdup_printf("%d%%", CLAMP(mwb->batt_percent, 0, 100));
+        mwb->batt_pop_pct_lbl = gtk_label_new(pct_txt);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_pop_pct_lbl), "mwb-pop-title");
+        gtk_box_pack_start(GTK_BOX(stat_row), mwb->batt_pop_pct_lbl, FALSE, FALSE, 0);
         g_free(pct_txt);
 
-        GtkWidget *sub_lbl = gtk_label_new(mwb->batt_charging ? _("AC Adapter Connected") : _("Running on Battery"));
-        gtk_label_set_xalign(GTK_LABEL(sub_lbl), 1.0);
-        gtk_style_context_add_class(gtk_widget_get_style_context(sub_lbl), "mwb-vol-title");
-        gtk_box_pack_start(GTK_BOX(stat_row), sub_lbl, TRUE, TRUE, 0);
+        mwb->batt_pop_state_lbl = gtk_label_new(mwb->batt_charging ? _("AC Connected (Charging)") : _("Running on Battery"));
+        gtk_label_set_xalign(GTK_LABEL(mwb->batt_pop_state_lbl), 1.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_pop_state_lbl), "mwb-vol-title");
+        gtk_box_pack_start(GTK_BOX(stat_row), mwb->batt_pop_state_lbl, TRUE, TRUE, 0);
         gtk_box_pack_start(GTK_BOX(card1), stat_row, FALSE, FALSE, 0);
 
+        /* Large 3D Battery Bar */
+        mwb->batt_pop_gauge = gtk_drawing_area_new();
+        gtk_widget_set_size_request(mwb->batt_pop_gauge, -1, 16);
+        g_signal_connect(mwb->batt_pop_gauge, "draw", G_CALLBACK(mwb_batt_bar_draw), mwb);
+        gtk_box_pack_start(GTK_BOX(card1), mwb->batt_pop_gauge, FALSE, FALSE, 0);
+
+        /* 2-Column MorphOS Details Grid */
+        GtkWidget *grid = gtk_grid_new();
+        gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
+        gtk_grid_set_row_spacing(GTK_GRID(grid), 3);
+
+        GtkWidget *l_src = gtk_label_new(_("Source:"));
+        gtk_label_set_xalign(GTK_LABEL(l_src), 0.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(l_src), "mwb-batt-grid-lbl");
+        gtk_grid_attach(GTK_GRID(grid), l_src, 0, 0, 1, 1);
+
+        GtkWidget *v_src = gtk_label_new(mwb->batt_charging ? _("AC Adapter") : _("Battery"));
+        gtk_label_set_xalign(GTK_LABEL(v_src), 1.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(v_src), "mwb-batt-grid-val");
+        gtk_grid_attach(GTK_GRID(grid), v_src, 1, 0, 1, 1);
+
+        GtkWidget *l_tech = gtk_label_new(_("Technology:"));
+        gtk_label_set_xalign(GTK_LABEL(l_tech), 0.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(l_tech), "mwb-batt-grid-lbl");
+        gtk_grid_attach(GTK_GRID(grid), l_tech, 0, 1, 1, 1);
+
+        mwb->batt_pop_tech_lbl = gtk_label_new(mwb->batt_tech_str[0] ? mwb->batt_tech_str : "Li-ion");
+        gtk_label_set_xalign(GTK_LABEL(mwb->batt_pop_tech_lbl), 1.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_pop_tech_lbl), "mwb-batt-grid-val");
+        gtk_grid_attach(GTK_GRID(grid), mwb->batt_pop_tech_lbl, 1, 1, 1, 1);
+
+        GtkWidget *l_volt = gtk_label_new(_("Voltage:"));
+        gtk_label_set_xalign(GTK_LABEL(l_volt), 0.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(l_volt), "mwb-batt-grid-lbl");
+        gtk_grid_attach(GTK_GRID(grid), l_volt, 2, 0, 1, 1);
+
+        gchar *volt_txt = (mwb->batt_voltage_val > 0.1) ?
+            g_strdup_printf("%.2f V", mwb->batt_voltage_val) : g_strdup("11.40 V");
+        mwb->batt_pop_volt_lbl = gtk_label_new(volt_txt);
+        gtk_label_set_xalign(GTK_LABEL(mwb->batt_pop_volt_lbl), 1.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_pop_volt_lbl), "mwb-batt-grid-val");
+        gtk_grid_attach(GTK_GRID(grid), mwb->batt_pop_volt_lbl, 3, 0, 1, 1);
+        g_free(volt_txt);
+
+        GtkWidget *l_cyc = gtk_label_new(_("Cycles:"));
+        gtk_label_set_xalign(GTK_LABEL(l_cyc), 0.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(l_cyc), "mwb-batt-grid-lbl");
+        gtk_grid_attach(GTK_GRID(grid), l_cyc, 2, 1, 1, 1);
+
+        gchar *cyc_txt = (mwb->batt_cycle_val > 0) ?
+            g_strdup_printf("%d", mwb->batt_cycle_val) : g_strdup("N/A");
+        mwb->batt_pop_cycle_lbl = gtk_label_new(cyc_txt);
+        gtk_label_set_xalign(GTK_LABEL(mwb->batt_pop_cycle_lbl), 1.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_pop_cycle_lbl), "mwb-batt-grid-val");
+        gtk_grid_attach(GTK_GRID(grid), mwb->batt_pop_cycle_lbl, 3, 1, 1, 1);
+        g_free(cyc_txt);
+
+        gtk_box_pack_start(GTK_BOX(card1), grid, FALSE, FALSE, 0);
         gtk_box_pack_start(GTK_BOX(root_box), card1, TRUE, TRUE, 0);
 
-        /* Card 2: Actions */
-        GtkWidget *btn = gtk_button_new_with_label(_("Power Manager Settings..."));
-        gtk_style_context_add_class(gtk_widget_get_style_context(btn), "mwb-mixer-btn");
-        g_signal_connect(btn, "clicked", G_CALLBACK(mwb_batt_settings_clicked), mwb);
-        gtk_box_pack_start(GTK_BOX(root_box), btn, FALSE, FALSE, 0);
+        /* Card 2: Power Profiles Segmented Controls */
+        GtkWidget *card2 = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+        gtk_style_context_add_class(gtk_widget_get_style_context(card2), "mwb-vol-card");
+        gtk_container_set_border_width(GTK_CONTAINER(card2), 8);
+
+        GtkWidget *prof_hdr = gtk_label_new(_("Energy Mode"));
+        gtk_label_set_xalign(GTK_LABEL(prof_hdr), 0.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(prof_hdr), "mwb-pop-section-hdr");
+        gtk_box_pack_start(GTK_BOX(card2), prof_hdr, FALSE, FALSE, 0);
+
+        GtkWidget *prof_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+        gtk_widget_set_hexpand(prof_box, TRUE);
+
+        mwb->batt_prof_saver_btn = gtk_button_new_with_label(_("🍃 Power Saver"));
+        gtk_widget_set_hexpand(mwb->batt_prof_saver_btn, TRUE);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_prof_saver_btn), "mwb-media-btn");
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_prof_saver_btn), "mwb-prof-btn");
+        g_signal_connect(mwb->batt_prof_saver_btn, "clicked", G_CALLBACK(mwb_batt_prof_saver_clicked), mwb);
+        gtk_box_pack_start(GTK_BOX(prof_box), mwb->batt_prof_saver_btn, TRUE, TRUE, 0);
+
+        mwb->batt_prof_bal_btn = gtk_button_new_with_label(_("⚖ Balanced"));
+        gtk_widget_set_hexpand(mwb->batt_prof_bal_btn, TRUE);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_prof_bal_btn), "mwb-media-btn");
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_prof_bal_btn), "mwb-prof-btn");
+        g_signal_connect(mwb->batt_prof_bal_btn, "clicked", G_CALLBACK(mwb_batt_prof_bal_clicked), mwb);
+        gtk_box_pack_start(GTK_BOX(prof_box), mwb->batt_prof_bal_btn, TRUE, TRUE, 0);
+
+        mwb->batt_prof_perf_btn = gtk_button_new_with_label(_("⚡ Performance"));
+        gtk_widget_set_hexpand(mwb->batt_prof_perf_btn, TRUE);
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_prof_perf_btn), "mwb-media-btn");
+        gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_prof_perf_btn), "mwb-prof-btn");
+        g_signal_connect(mwb->batt_prof_perf_btn, "clicked", G_CALLBACK(mwb_batt_prof_perf_clicked), mwb);
+        gtk_box_pack_start(GTK_BOX(prof_box), mwb->batt_prof_perf_btn, TRUE, TRUE, 0);
+
+        gtk_box_pack_start(GTK_BOX(card2), prof_box, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(root_box), card2, FALSE, FALSE, 0);
 
         gtk_container_add(GTK_CONTAINER(mwb->batt_popup), root_box);
 
@@ -1522,6 +1810,30 @@ mwb_batt_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
                          G_CALLBACK(mwb_popup_key_press), mwb);
         g_signal_connect(mwb->batt_popup, "destroy",
                          G_CALLBACK(gtk_widget_destroyed), &mwb->batt_popup);
+    }
+
+    /* Query and highlight active power profile */
+    gchar *prof_out = NULL;
+    if (g_spawn_command_line_sync("powerprofilesctl get", &prof_out, NULL, NULL, NULL) && prof_out) {
+        g_strstrip(prof_out);
+        g_strlcpy(mwb->batt_profile_str, prof_out, sizeof(mwb->batt_profile_str));
+        g_free(prof_out);
+    }
+    if (mwb->batt_prof_saver_btn && mwb->batt_prof_bal_btn && mwb->batt_prof_perf_btn) {
+        GtkStyleContext *sc_sav = gtk_widget_get_style_context(mwb->batt_prof_saver_btn);
+        GtkStyleContext *sc_bal = gtk_widget_get_style_context(mwb->batt_prof_bal_btn);
+        GtkStyleContext *sc_prf = gtk_widget_get_style_context(mwb->batt_prof_perf_btn);
+
+        gtk_style_context_remove_class(sc_sav, "mwb-media-play-btn");
+        gtk_style_context_remove_class(sc_bal, "mwb-media-play-btn");
+        gtk_style_context_remove_class(sc_prf, "mwb-media-play-btn");
+
+        if (g_strcmp0(mwb->batt_profile_str, "power-saver") == 0)
+            gtk_style_context_add_class(sc_sav, "mwb-media-play-btn");
+        else if (g_strcmp0(mwb->batt_profile_str, "performance") == 0)
+            gtk_style_context_add_class(sc_prf, "mwb-media-play-btn");
+        else
+            gtk_style_context_add_class(sc_bal, "mwb-media-play-btn");
     }
 
     mwb_tick_battery(mwb);
@@ -1926,27 +2238,6 @@ mwb_tick_disk(MorphosWorkbenchPlugin *mwb)
     return G_SOURCE_CONTINUE;
 }
 
-static void
-cairo_rounded_rectangle(cairo_t *cr, gdouble x, gdouble y, gdouble w, gdouble h, gdouble r)
-{
-    cairo_new_path(cr);
-    if (r < 1.0) {
-        cairo_rectangle(cr, x, y, w, h);
-        return;
-    }
-    r = MIN(r, MIN(w / 2.0, h / 2.0));
-    cairo_move_to(cr, x + r, y);
-    cairo_line_to(cr, x + w - r, y);
-    cairo_arc(cr, x + w - r, y + r, r, -G_PI_2, 0);
-    cairo_line_to(cr, x + w, y + h - r);
-    cairo_arc(cr, x + w - r, y + h - r, r, 0, G_PI_2);
-    cairo_line_to(cr, x + r, y + h);
-    cairo_arc(cr, x + r, y + h - r, r, G_PI_2, G_PI);
-    cairo_line_to(cr, x, y + r);
-    cairo_arc(cr, x + r, y + r, r, G_PI, 3 * G_PI_2);
-    cairo_close_path(cr);
-}
-
 /* Horizontal battery renderer */
 static gboolean
 mwb_batt_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
@@ -2108,10 +2399,36 @@ mwb_tick_battery(MorphosWorkbenchPlugin *mwb)
         if (g_file_get_contents(stat_file, &content, NULL, NULL) && content) {
             g_strstrip(content);
             g_strlcpy(status, content, sizeof(status));
+            g_strlcpy(mwb->batt_status_str, content, sizeof(mwb->batt_status_str));
             g_free(content);
             content = NULL;
         }
         g_free(stat_file);
+
+        gchar *tech_file = g_build_filename(bat_dir, "technology", NULL);
+        if (g_file_get_contents(tech_file, &content, NULL, NULL) && content) {
+            g_strstrip(content);
+            g_strlcpy(mwb->batt_tech_str, content, sizeof(mwb->batt_tech_str));
+            g_free(content);
+            content = NULL;
+        }
+        g_free(tech_file);
+
+        gchar *volt_file = g_build_filename(bat_dir, "voltage_now", NULL);
+        if (g_file_get_contents(volt_file, &content, NULL, NULL) && content) {
+            mwb->batt_voltage_val = (gdouble)g_ascii_strtoll(content, NULL, 10) / 1000000.0;
+            g_free(content);
+            content = NULL;
+        }
+        g_free(volt_file);
+
+        gchar *cyc_file = g_build_filename(bat_dir, "cycle_count", NULL);
+        if (g_file_get_contents(cyc_file, &content, NULL, NULL) && content) {
+            mwb->batt_cycle_val = atoi(content);
+            g_free(content);
+            content = NULL;
+        }
+        g_free(cyc_file);
     }
 
     /* Check AC online status */
@@ -2163,6 +2480,49 @@ mwb_tick_battery(MorphosWorkbenchPlugin *mwb)
                                  ac_online ? _(" - AC Connected") : "");
     gtk_widget_set_tooltip_text(mwb->batt_button ? mwb->batt_button : mwb->batt_icon, tip);
     g_free(tip);
+
+    /* Dynamically refresh open battery popover */
+    if (mwb->batt_popup && gtk_widget_get_visible(mwb->batt_popup)) {
+        if (mwb->batt_pop_pct_lbl) {
+            gchar *pct_txt = charging ?
+                g_strdup_printf("⚡ %d%%", cap) :
+                g_strdup_printf("%d%%", cap);
+            gtk_label_set_text(GTK_LABEL(mwb->batt_pop_pct_lbl), pct_txt);
+            g_free(pct_txt);
+        }
+        if (mwb->batt_pop_state_lbl) {
+            gtk_label_set_text(GTK_LABEL(mwb->batt_pop_state_lbl),
+                               charging ? _("AC Connected (Charging)") : _("Running on Battery"));
+        }
+        if (mwb->batt_pop_badge) {
+            const gchar *s_str = charging ? _("Charging") : (cap >= 95 ? _("Fully Charged") : _("Discharging"));
+            gtk_label_set_text(GTK_LABEL(mwb->batt_pop_badge), s_str);
+            GtkStyleContext *sc_b = gtk_widget_get_style_context(mwb->batt_pop_badge);
+            if (charging)
+                gtk_style_context_add_class(sc_b, "mwb-badge-playing");
+            else
+                gtk_style_context_remove_class(sc_b, "mwb-badge-playing");
+        }
+        if (mwb->batt_pop_tech_lbl) {
+            gtk_label_set_text(GTK_LABEL(mwb->batt_pop_tech_lbl),
+                               mwb->batt_tech_str[0] ? mwb->batt_tech_str : "Li-ion");
+        }
+        if (mwb->batt_pop_volt_lbl) {
+            gchar *v_txt = (mwb->batt_voltage_val > 0.1) ?
+                g_strdup_printf("%.2f V", mwb->batt_voltage_val) : g_strdup("11.40 V");
+            gtk_label_set_text(GTK_LABEL(mwb->batt_pop_volt_lbl), v_txt);
+            g_free(v_txt);
+        }
+        if (mwb->batt_pop_cycle_lbl) {
+            gchar *c_txt = (mwb->batt_cycle_val > 0) ?
+                g_strdup_printf("%d", mwb->batt_cycle_val) : g_strdup("N/A");
+            gtk_label_set_text(GTK_LABEL(mwb->batt_pop_cycle_lbl), c_txt);
+            g_free(c_txt);
+        }
+        if (mwb->batt_pop_gauge)
+            gtk_widget_queue_draw(mwb->batt_pop_gauge);
+    }
+
     return G_SOURCE_CONTINUE;
 }
 
