@@ -8,10 +8,10 @@ A panel plugin for XFCE4 that recreates the **MorphOS Ambient Workbench top bar*
 
 - 🌐 **MorphOS Ambient menu bar**: classic Workbench-style menu titles at the top of the screen
 - 🔵 **Ambient logo button**: opens the main system menu (About, Preferences, Lock, Log Out, Restart, Shut Down)
-- 📁 **Workbench menu**: Home, Documents, Empty Trash, Redraw/Refresh
-- ⚙️ **Ambient menu**: System Info, Terminal, Run…, Settings Manager, Screen/Keyboard settings
-- 🗂️ **Icons menu**: Clean Up, Sort by Name/Type, Select All
-- 💾 **Disk menu**: Disk Usage, Eject/Unmount, Mount Volumes, Disk Utility
+- 📁 **Workbench menu**: Home, Documents, Terminal, Search, Empty Trash, Redraw/Refresh
+- ⚙️ **Ambient menu**: System Info, Task Manager, Terminal, Run…, File Manager, Browser, Settings, Screen/Keyboard
+- 🗂️ **Icons menu**: New Folder, Clean Up, Open Desktop Menu, Window List, Next Wallpaper, Reload, Desktop Settings
+- 💾 **Disk menu**: File Manager, Removable Media, Eject/Unmount, Disk Utility
 - 📦 **Applications menu**: quick launchers for Terminal, File Manager, Browser, Multimedia, Graphics, Office, Education, System Tools
 - ⏱️ **Live clock** (updates every second, click for a calendar popup — MorphOS Calendar)
 - 🔋 **Battery indicator**: classical battery icon and percentage from `/sys/class/power_supply`
@@ -21,6 +21,7 @@ A panel plugin for XFCE4 that recreates the **MorphOS Ambient Workbench top bar*
   - 📊 **Memory gauge** (reads `/proc/meminfo`, color shifts blue → amber → red as load rises)
   - 💡 **Netlamps** (TX/RX LEDs that glow blue on network traffic via `/proc/net/dev`)
   - 💽 **Drivelamps** (LEDs that glow amber on disk I/O via `/proc/diskstats`)
+  - 📶 **Wi-Fi** (embedded `xfce4-networkmanager` panel plugin — full NetworkManager network list, connect/disconnect, Wi-Fi toggle)
   - 🔊 **Volume control** (click for a popup slider, controls PulseAudio via `pactl`)
 - 🎨 **Themeable**: GTK+ CSS provider replicates the Ambient dark-blue gradient, menu styling, gauge/lamps styling, and hover effects
 - 🌓 **Three themes**: Classic Ambient blue, Dark near-black, and Light silver metal
@@ -32,10 +33,10 @@ A panel plugin for XFCE4 that recreates the **MorphOS Ambient Workbench top bar*
 | Menu | Items |
 |---|---|
 | **Ambient (logo)** | About This Computer · Ambient Preferences · Lock Screen · Log Out · Restart · Shut Down |
-| **Workbench** | Open Home · Open Documents · Empty Trash · Redraw / Refresh |
-| **Ambient** | System Info · Terminal · Run… · Settings Manager · Screen Settings · Keyboard · Open Application Menu |
-| **Icons** | Clean Up Icons · Sort by Name · Sort by Type · Select All Icons |
-| **Disk** | Disk Usage · Eject / Unmount… · Mount Volumes · Open Disk Utility |
+| **Workbench** | Open Home · Open Documents · Open Terminal · Search Applications · Empty Trash · Redraw / Refresh |
+| **Ambient** | System Info · Task Manager · Terminal · Run… · File Manager · Web Browser · Settings Manager · Screen Settings · Keyboard · Open Application Menu |
+| **Icons** | New Folder · Clean Up Icons · Open Desktop Menu · Window List · Next Wallpaper · Reload Desktop · Desktop Settings |
+| **Disk** | Open File Manager · Open Removable Media · Eject / Unmount… · Open Disk Utility |
 | **Applications** | Terminal · File Manager · Web Browser · Multimedia · Graphics · Office · Education · System Tools |
 
 ## Desktop Environment & Window Manager Compatibility
@@ -48,6 +49,10 @@ A panel plugin for XFCE4 that recreates the **MorphOS Ambient Workbench top bar*
 ## Requirements & Package Dependencies
 
 See [DEPENDENCIES.md](DEPENDENCIES.md) for full build/runtime requirements.
+
+> **Runtime note:** the Wi-Fi section embeds the **xfce4-networkmanager** panel plugin
+> (`libxfce4-networkmanager.so`). It is `dlopen()`ed at runtime (not linked at build time),
+> so install that plugin for the Wi-Fi indicator to work.
 
 ### Quick Install Commands
 
@@ -104,6 +109,7 @@ xfce4-panel -a morphos-workbench
 Right-click the plugin and select **Properties** to configure:
 
 - Theme: Classic, Dark, or Light
+- Override GTK theme (apply the Workbench's own style to every widget, independent of the desktop theme)
 - CPU per-core vertical meters
 - Memory and disk vertical meters
 - Network/disk activity lamps

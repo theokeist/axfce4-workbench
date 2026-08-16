@@ -127,6 +127,11 @@ This document lists build and runtime dependencies for **XFCE4 MorphOS Workbench
 
 > Note: this project uses `libxfce4panel-2.0` (XFCE 4.16+ panel API). Older `libxfce4panel-1.0` panels are **not** supported.
 
+> Runtime note: the Wi-Fi section embeds the **xfce4-networkmanager** panel plugin by
+> `dlopen()`ing `libxfce4-networkmanager.so` at runtime (no build-time dependency). Install
+> the `xfce4-networkmanager` plugin (which itself needs `libnm` / NetworkManager) for the
+> Wi-Fi indicator to appear.
+
 ---
 
 ## 6. Build & Installation Quick-Start
