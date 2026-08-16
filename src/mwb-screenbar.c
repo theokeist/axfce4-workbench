@@ -3123,13 +3123,15 @@ mwb_build_screenbar(MorphosWorkbenchPlugin *mwb)
             gtk_box_pack_start(GTK_BOX(slot), wgt, FALSE, FALSE, 0);
             gtk_box_pack_start(GTK_BOX(slot), mwb_screenbar_divider(), FALSE, FALSE, 0);
             gtk_box_pack_start(GTK_BOX(right), slot, FALSE, FALSE, 0);
+            gtk_widget_show_all(slot);
             gtk_widget_set_visible(slot, mwb_widget_enabled(mwb, w));
             mwb->widget_widgets[w] = slot;
         }
     }
 
     gtk_box_pack_end(GTK_BOX(mwb->bar), right, FALSE, FALSE, 0);
-    gtk_widget_show(right);
+    gtk_widget_show_all(right);
+    mwb_apply_widget_order(mwb);
 
     /* Timers */
     if (mwb->show_clock) {
@@ -3182,6 +3184,7 @@ mwb_apply_widget_order(MorphosWorkbenchPlugin *mwb)
         if (!slot)
             continue;
 
+        gtk_widget_show_all(slot);
         gtk_widget_set_visible(slot, mwb_widget_enabled(mwb, w));
         gtk_box_reorder_child(GTK_BOX(right), slot, pos);
         pos++;
