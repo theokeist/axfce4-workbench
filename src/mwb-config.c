@@ -374,11 +374,16 @@ static void
 mwb_settings_theme_changed(GtkComboBox *combo, gpointer data)
 {
     MorphosWorkbenchPlugin *mwb = data;
+    GtkWidget *toplevel;
     mwb->theme = gtk_combo_box_get_active(combo);
     if (mwb->theme < 0 || mwb->theme >= MWB_THEME_COUNT)
         mwb->theme = MWB_THEME_CLASSIC;
     mwb_apply_theme(mwb);
     mwb_apply_menu_opacity(mwb);
+
+    toplevel = gtk_widget_get_toplevel(GTK_WIDGET(combo));
+    if (toplevel && gtk_widget_is_toplevel(toplevel))
+        mwb_theme_widget(mwb, toplevel);
 }
 
 void
@@ -422,6 +427,7 @@ mwb_configure_plugin(XfcePanelPlugin *plugin, MorphosWorkbenchPlugin *mwb)
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 6);
     gtk_box_pack_start(GTK_BOX(content_area), vbox, TRUE, TRUE, 0);
     gtk_style_context_add_class(gtk_widget_get_style_context(dialog), "mwb-settings");
+    mwb_theme_widget(mwb, dialog);
 
     /* ---- General ---- */
     box = mwb_settings_page(GTK_STACK(stack), _("General"));
