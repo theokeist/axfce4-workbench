@@ -20,7 +20,10 @@
 #define __MORPHOS_WORKBENCH_H__
 
 #include <gtk/gtk.h>
+#include <gmodule.h>
 #include <libxfce4panel/libxfce4panel.h>
+#include <libxfce4util/libxfce4util.h>
+#include <libxfce4ui/libxfce4ui.h>
 
 G_BEGIN_DECLS
 
@@ -56,6 +59,14 @@ typedef enum {
     MWB_GAUGE_COUNT
 } MorphosWorkbenchGauge;
 
+/* Screenbar gauge visual styles */
+typedef enum {
+    MWB_GAUGE_STYLE_INDUSTRIAL, /* classic segmented LED blocks */
+    MWB_GAUGE_STYLE_3D,         /* glossy chrome cylinder */
+    MWB_GAUGE_STYLE_PLAIN,      /* flat square, thin frame */
+    MWB_GAUGE_STYLE_COUNT
+} MorphosWorkbenchGaugeStyle;
+
 /* Theme variants */
 typedef enum {
     MWB_THEME_CLASSIC,   /* original Ambient dark-blue */
@@ -70,6 +81,139 @@ typedef enum {
     MWB_LOGO_MONO,
     MWB_LOGO_COUNT
 } MorphosWorkbenchLogo;
+
+/* Recently-used application entry (shown at the top of the Applications menu) */
+typedef struct {
+    gchar *icon;
+    gchar *label;
+    gchar *cmd;
+    gint   cycles;
+} MwbRecentApp;
+
+/* Plugin state */
+typedef struct {
+    XfcePanelPlugin *plugin;
+    GtkWidget       *bar;             /* top bar container */
+    GtkWidget       *logo_button;     /* Ambient Workbench identity */
+    GtkWidget       *title;           /* workbench title label */
+    GtkWidget       *clock_label;     /* date/time label */
+    GtkWidget       *clock_button;    /* clickable time (opens calendar) */
+    GtkWidget       *mem_gauge;       /* vertical memory gauge */
+    GtkWidget       *cpu_gauges[16];  /* per-core vertical CPU gauges */
+    GtkWidget       *disk_gauge;      /* vertical disk gauge */
+    GtkWidget       *net_lamps[2];    /* Netlamps: TX, RX */
+    GtkWidget       *disk_lamps[2];   /* Drivelamps: disk 0, disk 1 */
+    GModule         *nm_module;       /* dlopen'd xfce4-networkmanager module */
+    GtkWidget       *nm_plugin;       /* embedded xfce4-networkmanager widget */
+    GtkWidget       *batt_button;     /* battery button */
+    GtkWidget       *batt_icon;       /* battery image */
+    GtkWidget       *batt_label;      /* battery % label */
+    GtkWidget       *sys_button;      /* system info button */
+    GtkWidget       *vol_button;      /* volume button */
+    GtkWidget       *vol_scale;       /* volume slider in popup */
+    GtkWidget       *vol_icon;        /* volume icon */
+    GtkWidget       *vol_mute_button; /* volume mute toggle in popup */
+    GtkWidget       *vol_mute_icon;   /* mute button icon */
+    GtkWidget       *vol_percent_label; /* volume % label in popup */
+    gboolean         vol_muted;       /* mute state */
+    GtkWidget       *screenbar;       /* right-side screenbar container */
+    GtkWidget       *calendar_popup;  /* calendar popup window */
+    GtkWidget       *volume_popup;    /* volume popup window */
+    GtkWidget       *calendar;        /* the GtkCalendar itself */
+    guint            calendar_grab;   /* seat grab timer id */
+    guint            volume_grab;     /* seat grab timer id */
+    gint64           popup_open_time;
+    GtkWidget       *menus[MWB_MENU_COUNT];
+    GtkWidget       *menu_buttons[MWB_MENU_COUNT];
+    GtkWidget       *active_button;   /* currently open menu button */
+    GList           *recent_apps;     /* most-recently-used apps (MRU) */
+    guint            clock_timeout;
+    guint            mem_timeout;
+    guint            cpu_timeout;
+    guint            net_timeout;
+    guint            disk_timeout;
+    guint            batt_timeout;
+    guint            sys_timeout;
+    MorphosWorkbenchTheme theme;
+    MorphosWorkbenchLogo logo_variant;
+    gint             gauge_style;   /* MorphosWorkbenchGaugeStyle */
+    gboolean         override_theme;  /* force Workbench theming on all widgets */
+    gboolean         show_clock;
+    gboolean         show_membar;
+    gboolean         show_cpumbar;
+    gboolean         show_diskgauge;
+    gboolean         show_netlamps;
+    gboolean         show_drivelamps;
+    gboolean         show_volume;
+    gboolean         show_wifi;
+    gboolean         show_battery;
+    gboolean         show_sysinfo;
+    gboolean         show_logo;
+    gboolean         show_title;
+    gboolean         show_workbench_menu;
+    gboolean         show_ambient_menu;
+    gboolean         show_icons_menu;
+    gboolean         show_disk_menu;
+    gboolean         show_applications_menu;
+    guint64          cpu_prev_total;
+    guint64          cpu_prev_idle;
+    guint64          cpu_prev_core_total[16];
+    guint64          cpu_prev_core_idle[16];
+    gint             cpu_ncores;
+    gdouble          cpu_load;
+    guint64          net_prev_tx;
+    guint64          net_prev_rx;
+    guint64          net_prev_bytes;
+    gint64           net_prev_time;
+    guint64          disk_prev_sects[2];
+    guint            vol_percent;
+} MorphosWorkbenchPlugin;
+
+/* theme.c */
+void        mwb_init_css                (void);
+void        mwb_apply_theme             (MorphosWorkbenchPlugin *mwb);
+void        mwb_apply_logo              (MorphosWorkbenchPlugin *mwb);
+void        mwb_theme_widget            (MorphosWorkbenchPlugin *mwb,
+                                         GtkWidget *widget);
+const gchar *mwb_logo_icon_name         (MorphosWorkbenchLogo variant);
+
+/* utils.c */
+void        mwb_launch                  (const gchar *command);
+void        mwb_desktop_new_folder      (void);
+GtkWidget  *mwb_screenbar_divider       (void);
+
+/* gauges.c */
+GtkWidget  *mwb_gauge_new               (gint kind, const gchar *label_text,
+                                         MorphosWorkbenchTheme theme,
+                                         MorphosWorkbenchGaugeStyle style);
+void        mwb_gauge_set               (GtkWidget *gauge, gdouble frac);
+void        mwb_gauge_set_theme         (GtkWidget *gauge,
+                                         MorphosWorkbenchTheme theme);
+void        mwb_gauge_set_style         (GtkWidget *gauge,
+                                         MorphosWorkbenchGaugeStyle style);
+
+/* menus.c */
+GtkWidget  *mwb_create_menu_title       (MorphosWorkbenchPlugin *mwb,
+                                         const gchar *text);
+void        mwb_menu_toggle             (GtkButton *button,
+                                         MorphosWorkbenchPlugin *mwb);
+void        mwb_create_menus            (MorphosWorkbenchPlugin *mwb);
+void        mwb_rebuild_applications_menu (MorphosWorkbenchPlugin *mwb);
+void        mwb_recent_clear            (MorphosWorkbenchPlugin *mwb);
+
+/* screenbar.c */
+void        mwb_build_screenbar         (MorphosWorkbenchPlugin *mwb);
+
+/* config.c */
+void        mwb_save_config             (XfcePanelPlugin *plugin,
+                                         MorphosWorkbenchPlugin *mwb);
+void        mwb_load_config             (MorphosWorkbenchPlugin *mwb);
+void        mwb_configure_plugin        (XfcePanelPlugin *plugin,
+                                         MorphosWorkbenchPlugin *mwb);
+
+/* bar (morphos-workbench.c) */
+void        mwb_build_bar               (MorphosWorkbenchPlugin *mwb);
+void        mwb_apply_left_visibility   (MorphosWorkbenchPlugin *mwb);
 
 G_END_DECLS
 

@@ -1,7 +1,12 @@
 # Plugin sources
 morphos_workbench_sources = [
   'morphos-workbench.c',
-  'morphos-workbench.h'
+  'mwb-theme.c',
+  'mwb-utils.c',
+  'mwb-gauges.c',
+  'mwb-menus.c',
+  'mwb-screenbar.c',
+  'mwb-config.c'
 ]
 
 # Dependencies for the plugin
