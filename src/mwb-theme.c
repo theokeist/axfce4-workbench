@@ -513,10 +513,10 @@ static const gchar *MWB_CSS =
   "  color: #fde047;"
   "  border: 1px solid alpha(#facc15, 0.5);"
   "}"
-  ".mwb-theme-classic .mwb-vol-card {"
-  "  background-color: alpha(#0e1929, 0.65);"
-  "  border: 1px solid alpha(#4a7fb8, 0.3);"
-  "  box-shadow: inset 0 1px 2px alpha(#000000, 0.45);"
+  ".mwb-theme-classic .mwb-vol-card, .mwb-theme-classic .mwb-notify-card, .mwb-theme-classic.mwb-popup .mwb-vol-card {"
+  "  background-color: #0c1828 !important;"
+  "  border: 1px solid #233b5c !important;"
+  "  box-shadow: inset 0 1px 2px alpha(#000000, 0.55), 0 1px 0 alpha(#ffffff, 0.08) !important;"
   "}"
   ".mwb-theme-classic .mwb-playing-card {"
   "  background-image: linear-gradient(135deg, alpha(#213a60, 0.85) 0%, alpha(#102138, 0.95) 100%);"
@@ -715,10 +715,10 @@ static const gchar *MWB_CSS =
   "  color: #facc15;"
   "  border: 1px solid alpha(#eab308, 0.5);"
   "}"
-  ".mwb-theme-dark .mwb-vol-card {"
-  "  background-color: alpha(#070a0f, 0.7);"
-  "  border: 1px solid alpha(#252e3d, 0.8);"
-  "  box-shadow: inset 0 1px 2px alpha(#000000, 0.6);"
+  ".mwb-theme-dark .mwb-vol-card, .mwb-theme-dark .mwb-notify-card, .mwb-theme-dark.mwb-popup .mwb-vol-card {"
+  "  background-color: #080d14 !important;"
+  "  border: 1px solid #1c2635 !important;"
+  "  box-shadow: inset 0 1px 2px alpha(#000000, 0.70), 0 1px 0 alpha(#ffffff, 0.05) !important;"
   "}"
   ".mwb-theme-dark .mwb-playing-card {"
   "  background-image: linear-gradient(135deg, alpha(#1f293a, 0.9) 0%, alpha(#101520, 0.95) 100%);"
@@ -944,10 +944,10 @@ static const gchar *MWB_CSS =
   "  color: #a16207;"
   "  border: 1px solid alpha(#fde047, 0.8);"
   "}"
-  ".mwb-theme-light .mwb-vol-card {"
-  "  background-color: alpha(#ffffff, 0.8);"
-  "  border: 1px solid alpha(#cbd5e1, 0.9);"
-  "  box-shadow: inset 0 1px 2px alpha(#ffffff, 0.8), 0 1px 3px alpha(#000000, 0.05);"
+  ".mwb-theme-light .mwb-vol-card, .mwb-theme-light .mwb-notify-card, .mwb-theme-light.mwb-popup .mwb-vol-card {"
+  "  background-color: #ffffff !important;"
+  "  border: 1px solid #cbd5e1 !important;"
+  "  box-shadow: inset 0 1px 2px alpha(#ffffff, 0.8), 0 1px 3px alpha(#000000, 0.08) !important;"
   "}"
   ".mwb-theme-light .mwb-playing-card {"
   "  background-image: linear-gradient(135deg, alpha(#ffffff, 0.95) 0%, alpha(#e8eef5, 0.95) 100%);"
@@ -1179,6 +1179,28 @@ static const gchar *MWB_CSS =
   "  color: #1e293b !important;"
   "  text-shadow: 0 1px 0 alpha(#ffffff, 0.80) !important;"
   "}"
+  ".mwb-clear-bg .mwb-popup, .mwb-clear-bg.mwb-popup, .mwb-clear-bg .mwb-vol-popup, .mwb-clear-bg.mwb-vol-popup, .mwb-clear-bg #mwb-batt-pop, .mwb-clear-bg #mwb-notify-pop, .mwb-clear-bg #mwb-volume-pop, .mwb-clear-bg #mwb-calendar, .mwb-clear-bg #mwb-wifi-pop {"
+  "  background-image: linear-gradient(to bottom, #1d2c44 0%, #152236 100%) !important;"
+  "  background-color: #152236 !important;"
+  "  border: 1px solid #334d73 !important;"
+  "  box-shadow: inset 0 1px 0 alpha(#ffffff, 0.22), 0 14px 36px alpha(#000000, 0.85) !important;"
+  "}"
+  ".mwb-clear-bg .mwb-vol-card, .mwb-clear-bg.mwb-popup .mwb-vol-card, .mwb-clear-bg .mwb-notify-card {"
+  "  background-color: #0c1828 !important;"
+  "  border: 1px solid #233b5c !important;"
+  "  box-shadow: inset 0 1px 2px alpha(#000000, 0.55), 0 1px 0 alpha(#ffffff, 0.08) !important;"
+  "}"
+  ".mwb-theme-light .mwb-clear-bg .mwb-popup, .mwb-theme-light.mwb-clear-bg .mwb-popup, .mwb-theme-light .mwb-clear-bg .mwb-vol-popup, .mwb-theme-light.mwb-clear-bg .mwb-vol-popup, .mwb-theme-light .mwb-clear-bg #mwb-batt-pop, .mwb-theme-light .mwb-clear-bg #mwb-notify-pop, .mwb-theme-light .mwb-clear-bg #mwb-volume-pop, .mwb-theme-light .mwb-clear-bg #mwb-calendar, .mwb-theme-light .mwb-clear-bg #mwb-wifi-pop {"
+  "  background-image: linear-gradient(to bottom, #f5f7fa 0%, #e2e7ee 100%) !important;"
+  "  background-color: #e2e7ee !important;"
+  "  border: 1px solid #8e9aa8 !important;"
+  "  box-shadow: inset 0 1px 0 alpha(#ffffff, 0.95), 0 14px 36px alpha(#000000, 0.35) !important;"
+  "}"
+  ".mwb-theme-light .mwb-clear-bg .mwb-vol-card, .mwb-theme-light.mwb-clear-bg.mwb-popup .mwb-vol-card, .mwb-theme-light .mwb-clear-bg .mwb-notify-card {"
+  "  background-color: #ffffff !important;"
+  "  border: 1px solid #cbd5e1 !important;"
+  "  box-shadow: inset 0 1px 2px alpha(#ffffff, 0.8), 0 1px 3px alpha(#000000, 0.08) !important;"
+  "}"
   "";
 
 static void
@@ -1235,8 +1257,9 @@ mwb_apply_menu_opacity(MorphosWorkbenchPlugin *mwb)
     mwb_add_provider_to_all_screens(provider, GTK_STYLE_PROVIDER_PRIORITY_USER + 50);
 
     alpha = CLAMP(mwb->menu_opacity, 0, 100) / 100.0;
+    gdouble pop_alpha = MAX(alpha, 0.96); /* Popups must remain completely solid and legible */
     css = g_strdup_printf(
-        "window.popup, window.popup > menu, window.background.popup, window.menu, window.mwb-popup, window.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
+        "window.popup, window.popup > menu, window.background.popup, window.menu, .mwb-menu-window {\n"
         "  background: transparent !important;\n"
         "  background-color: transparent !important;\n"
         "  background-image: none !important;\n"
@@ -1256,21 +1279,27 @@ mwb_apply_menu_opacity(MorphosWorkbenchPlugin *mwb)
         ".mwb-theme-classic.mwb-popup, .mwb-theme-classic .mwb-popup, .mwb-theme-classic.mwb-vol-popup, .mwb-theme-classic .mwb-vol-popup, window.mwb-theme-classic.mwb-popup, window.mwb-theme-classic.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
         "  background-image: linear-gradient(to bottom, rgba(29, 44, 68, %.3f) 0%%, rgba(21, 34, 54, %.3f) 100%%) !important;\n"
         "  background-color: rgba(21, 34, 54, %.3f) !important;\n"
+        "  border: 1px solid #334d73 !important;\n"
+        "  box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 14px 36px rgba(0,0,0,0.85) !important;\n"
         "}\n"
         ".mwb-theme-dark.mwb-popup, .mwb-theme-dark .mwb-popup, .mwb-theme-dark.mwb-vol-popup, .mwb-theme-dark .mwb-vol-popup, window.mwb-theme-dark.mwb-popup, window.mwb-theme-dark.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
         "  background-image: linear-gradient(to bottom, rgba(22, 28, 36, %.3f) 0%%, rgba(13, 17, 23, %.3f) 100%%) !important;\n"
         "  background-color: rgba(13, 17, 23, %.3f) !important;\n"
+        "  border: 1px solid #283344 !important;\n"
+        "  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 14px 36px rgba(0,0,0,0.90) !important;\n"
         "}\n"
         ".mwb-theme-light.mwb-popup, .mwb-theme-light .mwb-popup, .mwb-theme-light.mwb-vol-popup, .mwb-theme-light .mwb-vol-popup, window.mwb-theme-light.mwb-popup, window.mwb-theme-light.mwb-vol-popup, #mwb-volume-pop, #mwb-calendar, #mwb-notify-pop, #mwb-batt-pop, #mwb-wifi-pop {\n"
         "  background-image: linear-gradient(to bottom, rgba(255, 255, 255, %.3f) 0%%, rgba(237, 242, 247, %.3f) 100%%) !important;\n"
         "  background-color: rgba(237, 242, 247, %.3f) !important;\n"
+        "  border: 1px solid #8e9aa8 !important;\n"
+        "  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 14px 36px rgba(0,0,0,0.35) !important;\n"
         "}\n",
         alpha, alpha, alpha,
         alpha, alpha, alpha,
         alpha, alpha, alpha,
-        alpha, alpha, alpha,
-        alpha, alpha, alpha,
-        alpha, alpha, alpha);
+        pop_alpha, pop_alpha, pop_alpha,
+        pop_alpha, pop_alpha, pop_alpha,
+        pop_alpha, pop_alpha, pop_alpha);
     gtk_css_provider_load_from_data(provider, css, -1, NULL);
     g_free(css);
 }
