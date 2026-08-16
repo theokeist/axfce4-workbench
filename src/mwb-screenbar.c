@@ -2265,6 +2265,8 @@ mwb_build_drivelamps(MorphosWorkbenchPlugin *mwb)
     GtkWidget *diskbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
     guint d;
     gtk_style_context_add_class(gtk_widget_get_style_context(diskbox), "mwb-island");
+    gtk_style_context_add_class(gtk_widget_get_style_context(diskbox), "mwb-screenbar-pill");
+    gtk_widget_set_valign(diskbox, GTK_ALIGN_CENTER);
     for (d = 0; d < 2; d++) {
         mwb->disk_lamps[d] = mwb_lamp_new(_("Disk activity"), "disk");
         gtk_box_pack_start(GTK_BOX(diskbox), mwb->disk_lamps[d], FALSE, FALSE, 0);
@@ -2277,6 +2279,8 @@ mwb_build_netlamps(MorphosWorkbenchPlugin *mwb)
 {
     GtkWidget *netbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
     gtk_style_context_add_class(gtk_widget_get_style_context(netbox), "mwb-island");
+    gtk_style_context_add_class(gtk_widget_get_style_context(netbox), "mwb-screenbar-pill");
+    gtk_widget_set_valign(netbox, GTK_ALIGN_CENTER);
     mwb->net_lamps[MWB_LAMP_NET_TX] = mwb_lamp_new(_("Network transmit"), "net");
     gtk_box_pack_start(GTK_BOX(netbox), mwb->net_lamps[MWB_LAMP_NET_TX], FALSE, FALSE, 0);
     mwb->net_lamps[MWB_LAMP_NET_RX] = mwb_lamp_new(_("Network receive"), "net");
@@ -2298,8 +2302,11 @@ mwb_build_wifi(MorphosWorkbenchPlugin *mwb)
     gtk_button_set_relief(GTK_BUTTON(mwb->wifi_button), GTK_RELIEF_NONE);
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->wifi_button), "mwb-volbutton");
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->wifi_button), "mwb-wifi-button");
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->wifi_button), "mwb-screenbar-pill");
+    gtk_widget_set_valign(mwb->wifi_button, GTK_ALIGN_CENTER);
 
     GtkWidget *icon = gtk_image_new_from_icon_name("network-wireless-signal-good-symbolic", GTK_ICON_SIZE_MENU);
+    gtk_image_set_pixel_size(GTK_IMAGE(icon), 16);
     gtk_container_add(GTK_CONTAINER(mwb->wifi_button), icon);
     gtk_widget_set_tooltip_text(mwb->wifi_button, _("Network & Wi-Fi"));
     gtk_widget_show_all(mwb->wifi_button);
@@ -2314,11 +2321,13 @@ mwb_build_battery(MorphosWorkbenchPlugin *mwb)
     gtk_button_set_relief(GTK_BUTTON(mwb->batt_button), GTK_RELIEF_NONE);
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_button), "mwb-volbutton");
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_button), "mwb-batt-button");
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_button), "mwb-screenbar-pill");
+    gtk_widget_set_valign(mwb->batt_button, GTK_ALIGN_CENTER);
 
     GtkWidget *batt_content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
 
     mwb->batt_icon = gtk_drawing_area_new();
-    gtk_widget_set_size_request(mwb->batt_icon, 28, 16);
+    gtk_widget_set_size_request(mwb->batt_icon, 24, 14);
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->batt_icon), "mwb-batt-gauge");
     g_signal_connect(mwb->batt_icon, "draw", G_CALLBACK(mwb_batt_draw), mwb);
     gtk_box_pack_start(GTK_BOX(batt_content), mwb->batt_icon, FALSE, FALSE, 0);
@@ -2348,6 +2357,10 @@ mwb_build_cpu(MorphosWorkbenchPlugin *mwb)
     mwb->cpu_ncores = nc;
 
     GtkWidget *cpurow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    gtk_style_context_add_class(gtk_widget_get_style_context(cpurow), "mwb-island");
+    gtk_style_context_add_class(gtk_widget_get_style_context(cpurow), "mwb-gauge-island");
+    gtk_style_context_add_class(gtk_widget_get_style_context(cpurow), "mwb-screenbar-pill");
+    gtk_widget_set_valign(cpurow, GTK_ALIGN_CENTER);
     mwb->cpu_gauges[0] = mwb_gauge_new(MWB_GAUGE_CPU, _("CPU"), mwb->theme, mwb->gauge_style);
     gtk_box_pack_start(GTK_BOX(cpurow), mwb->cpu_gauges[0], FALSE, FALSE, 0);
     return cpurow;
@@ -2357,6 +2370,10 @@ static GtkWidget *
 mwb_build_mem(MorphosWorkbenchPlugin *mwb)
 {
     GtkWidget *memrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    gtk_style_context_add_class(gtk_widget_get_style_context(memrow), "mwb-island");
+    gtk_style_context_add_class(gtk_widget_get_style_context(memrow), "mwb-gauge-island");
+    gtk_style_context_add_class(gtk_widget_get_style_context(memrow), "mwb-screenbar-pill");
+    gtk_widget_set_valign(memrow, GTK_ALIGN_CENTER);
     mwb->mem_gauge = mwb_gauge_new(MWB_GAUGE_MEM, _("RAM"), mwb->theme, mwb->gauge_style);
     gtk_box_pack_start(GTK_BOX(memrow), mwb->mem_gauge, FALSE, FALSE, 0);
     return memrow;
@@ -2366,6 +2383,10 @@ static GtkWidget *
 mwb_build_diskgauge(MorphosWorkbenchPlugin *mwb)
 {
     GtkWidget *diskrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    gtk_style_context_add_class(gtk_widget_get_style_context(diskrow), "mwb-island");
+    gtk_style_context_add_class(gtk_widget_get_style_context(diskrow), "mwb-gauge-island");
+    gtk_style_context_add_class(gtk_widget_get_style_context(diskrow), "mwb-screenbar-pill");
+    gtk_widget_set_valign(diskrow, GTK_ALIGN_CENTER);
     mwb->disk_gauge = mwb_gauge_new(MWB_GAUGE_DISK, _("DISK"), mwb->theme, mwb->gauge_style);
     gtk_box_pack_start(GTK_BOX(diskrow), mwb->disk_gauge, FALSE, FALSE, 0);
     return diskrow;
@@ -2377,8 +2398,11 @@ mwb_build_sysinfo(MorphosWorkbenchPlugin *mwb)
     mwb->sys_button = gtk_button_new();
     gtk_button_set_relief(GTK_BUTTON(mwb->sys_button), GTK_RELIEF_NONE);
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->sys_button), "mwb-volbutton");
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->sys_button), "mwb-screenbar-pill");
+    gtk_widget_set_valign(mwb->sys_button, GTK_ALIGN_CENTER);
     gtk_widget_set_tooltip_text(mwb->sys_button, _("System information"));
     GtkWidget *sys_img = gtk_image_new_from_icon_name("computer", GTK_ICON_SIZE_MENU);
+    gtk_image_set_pixel_size(GTK_IMAGE(sys_img), 16);
     gtk_container_add(GTK_CONTAINER(mwb->sys_button), sys_img);
     gtk_widget_show(sys_img);
     g_signal_connect(mwb->sys_button, "clicked", G_CALLBACK(mwb_sys_clicked), mwb);
@@ -2391,8 +2415,11 @@ mwb_build_volume(MorphosWorkbenchPlugin *mwb)
     mwb->vol_button = gtk_button_new();
     gtk_button_set_relief(GTK_BUTTON(mwb->vol_button), GTK_RELIEF_NONE);
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->vol_button), "mwb-volbutton");
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->vol_button), "mwb-screenbar-pill");
+    gtk_widget_set_valign(mwb->vol_button, GTK_ALIGN_CENTER);
     gtk_widget_set_tooltip_text(mwb->vol_button, _("Volume"));
     mwb->vol_icon = gtk_image_new_from_icon_name("audio-volume-high", GTK_ICON_SIZE_MENU);
+    gtk_image_set_pixel_size(GTK_IMAGE(mwb->vol_icon), 16);
     gtk_container_add(GTK_CONTAINER(mwb->vol_button), mwb->vol_icon);
     gtk_widget_show(mwb->vol_icon);
     g_signal_connect(mwb->vol_button, "clicked", G_CALLBACK(mwb_volume_clicked), mwb);
@@ -3023,14 +3050,14 @@ mwb_init_notification_monitor(MorphosWorkbenchPlugin *mwb)
 static GtkWidget *
 mwb_build_notifications(MorphosWorkbenchPlugin *mwb)
 {
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
-    gtk_style_context_add_class(gtk_widget_get_style_context(box), "mwb-island");
-
     mwb->notify_button = gtk_button_new();
+    gtk_button_set_relief(GTK_BUTTON(mwb->notify_button), GTK_RELIEF_NONE);
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->notify_button), "mwb-volbutton");
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->notify_button), "mwb-notify-btn");
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->notify_button), "mwb-screenbar-pill");
     gtk_widget_set_valign(mwb->notify_button, GTK_ALIGN_CENTER);
 
-    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
     mwb->notify_icon = gtk_image_new_from_icon_name("notification-symbolic", GTK_ICON_SIZE_MENU);
     gtk_image_set_pixel_size(GTK_IMAGE(mwb->notify_icon), 16);
     gtk_box_pack_start(GTK_BOX(btn_box), mwb->notify_icon, FALSE, FALSE, 0);
@@ -3042,7 +3069,6 @@ mwb_build_notifications(MorphosWorkbenchPlugin *mwb)
 
     gtk_container_add(GTK_CONTAINER(mwb->notify_button), btn_box);
     g_signal_connect(mwb->notify_button, "clicked", G_CALLBACK(mwb_notify_clicked), mwb);
-    gtk_box_pack_start(GTK_BOX(box), mwb->notify_button, FALSE, FALSE, 0);
 
     /* Setup D-Bus notification monitor */
     mwb_init_notification_monitor(mwb);
@@ -3066,7 +3092,7 @@ mwb_build_notifications(MorphosWorkbenchPlugin *mwb)
     mwb->notify_poll_id = g_timeout_add_seconds(3, (GSourceFunc)mwb_tick_notifications, mwb);
     mwb_notifications_refresh(mwb);
 
-    return box;
+    return mwb->notify_button;
 }
 
 static GtkWidget *
@@ -3074,7 +3100,11 @@ mwb_build_clock(MorphosWorkbenchPlugin *mwb)
 {
     mwb->clock_button = gtk_button_new();
     gtk_button_set_relief(GTK_BUTTON(mwb->clock_button), GTK_RELIEF_NONE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->clock_button), "mwb-volbutton");
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->clock_button), "mwb-clockbtn");
+    gtk_style_context_add_class(gtk_widget_get_style_context(mwb->clock_button), "mwb-screenbar-pill");
+    gtk_widget_set_valign(mwb->clock_button, GTK_ALIGN_CENTER);
+
     mwb->clock_label = gtk_label_new("");
     gtk_style_context_add_class(gtk_widget_get_style_context(mwb->clock_label), "mwb-clocks");
     gtk_container_add(GTK_CONTAINER(mwb->clock_button), mwb->clock_label);
