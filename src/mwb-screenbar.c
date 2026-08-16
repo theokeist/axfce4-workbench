@@ -2886,7 +2886,13 @@ mwb_notify_clicked(GtkWidget *widget G_GNUC_UNUSED, gpointer data)
     }
 
     if (!mwb->notify_popup) {
-        GtkWidget *win = gtk_window_new(GTK_WINDOW_POPUP);
+        GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+        gtk_window_set_decorated(GTK_WINDOW(win), FALSE);
+        gtk_window_set_skip_taskbar_hint(GTK_WINDOW(win), TRUE);
+        gtk_window_set_skip_pager_hint(GTK_WINDOW(win), TRUE);
+        gtk_window_set_type_hint(GTK_WINDOW(win), GDK_WINDOW_TYPE_HINT_POPUP_MENU);
+        gtk_window_set_resizable(GTK_WINDOW(win), FALSE);
+        gtk_widget_set_size_request(win, 320, -1);
         GdkScreen *screen = gtk_widget_get_screen(win);
         GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
         if (visual)
@@ -2901,6 +2907,7 @@ mwb_notify_clicked(GtkWidget *widget G_GNUC_UNUSED, gpointer data)
         g_signal_connect(win, "focus-out-event", G_CALLBACK(mwb_popup_focus_out), mwb);
         g_signal_connect(win, "key-press-event", G_CALLBACK(mwb_popup_key_press), mwb);
         g_signal_connect(win, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
+        g_signal_connect(win, "destroy", G_CALLBACK(gtk_widget_destroyed), &mwb->notify_popup);
 
         GtkWidget *root_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
         gtk_container_set_border_width(GTK_CONTAINER(root_box), 12);
