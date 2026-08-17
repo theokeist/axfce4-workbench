@@ -374,6 +374,8 @@ mwb_free_data(XfcePanelPlugin *plugin G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb
     g_list_free_full(mwb->notifications, (GDestroyNotify)mwb_notification_free);
     mwb->notifications = NULL;
     g_free(mwb->vol_playing_bus);
+    g_free(mwb->vol_last_art_url);
+    g_free(mwb->vol_streams_sig);
     g_free(mwb->net_prev_tip);
 
     g_slice_free(MorphosWorkbenchPlugin, mwb);

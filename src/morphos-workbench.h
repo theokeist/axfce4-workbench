@@ -187,6 +187,9 @@ typedef struct {
     GtkWidget       *vol_playing_next_btn; /* next track button */
     GtkWidget       *vol_playing_play_icon; /* play/pause icon */
     gchar           *vol_playing_bus;   /* current MPRIS player D-Bus destination */
+    gchar           *vol_last_art_url;  /* cached now-playing art URL (skip re-decode) */
+    gchar           *vol_streams_sig;   /* signature of current playback streams set */
+    guint            vol_media_task;    /* in-flight now-playing async task guard */
     GtkWidget       *vol_streams_box;   /* active playback streams container */
     gboolean         vol_muted;       /* mute state */
     gboolean         vol_mic_muted;   /* microphone mute state */

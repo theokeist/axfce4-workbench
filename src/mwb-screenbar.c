@@ -102,11 +102,23 @@ mwb_popup_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data G_GNUC_UNUSED)
     GtkStyleContext *context = gtk_widget_get_style_context(widget);
     gint width = gtk_widget_get_allocated_width(widget);
     gint height = gtk_widget_get_allocated_height(widget);
+    GtkWidget *child;
+
+    /* clear to fully transparent first so the rounded corners / RGBA window
+     * never show stale pixels or an unpainted square background */
+    cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+    cairo_paint(cr);
+    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
     gtk_render_background(context, cr, 0, 0, width, height);
     gtk_render_frame(context, cr, 0, 0, width, height);
 
-    return FALSE;
+    /* we own the whole draw: render the (single) child ourselves */
+    child = gtk_bin_get_child(GTK_BIN(widget));
+    if (child)
+        gtk_container_propagate_draw(GTK_CONTAINER(widget), child, cr);
+
+    return TRUE;
 }
 
 static gboolean
@@ -747,6 +759,12 @@ mwb_playing_set_art(MorphosWorkbenchPlugin *mwb, const gchar *art_url)
     if (!mwb->vol_playing_art)
         return;
 
+    /* skip the disk read + decode when the artwork is unchanged */
+    if (g_strcmp0(art_url, mwb->vol_last_art_url) == 0)
+        return;
+    g_free(mwb->vol_last_art_url);
+    mwb->vol_last_art_url = g_strdup(art_url);
+
     gchar *path = NULL;
     if (art_url && *art_url) {
         if (g_str_has_prefix(art_url, "file://"))
@@ -772,14 +790,11 @@ mwb_playing_set_art(MorphosWorkbenchPlugin *mwb, const gchar *art_url)
 }
 
 static void
-mwb_volume_update_playing(MorphosWorkbenchPlugin *mwb)
+mwb_apply_playing(MorphosWorkbenchPlugin *mwb, MwbMediaInfo *info)
 {
-    MwbMediaInfo *info;
-
     if (!mwb->vol_playing_card)
         return;
 
-    info = mwb_media_info();
     if (info) {
         g_free(mwb->vol_playing_bus);
         mwb->vol_playing_bus = g_strdup(info->bus_name);
@@ -840,7 +855,6 @@ mwb_volume_update_playing(MorphosWorkbenchPlugin *mwb)
             gtk_widget_show(mwb->vol_playing_controls);
 
         mwb_playing_set_art(mwb, info->art_url);
-        mwb_media_info_free(info);
     } else {
         g_free(mwb->vol_playing_bus);
         mwb->vol_playing_bus = NULL;
@@ -860,6 +874,44 @@ mwb_volume_update_playing(MorphosWorkbenchPlugin *mwb)
 
         mwb_playing_set_art(mwb, NULL);
     }
+}
+
+/* Fetch MPRIS metadata on a worker thread so the D-Bus round-trips never
+ * block the GTK main loop; apply the result on the main thread. */
+static void
+mwb_media_info_thread(GTask *task, gpointer source_object G_GNUC_UNUSED,
+                      gpointer task_data G_GNUC_UNUSED, GCancellable *cancellable G_GNUC_UNUSED)
+{
+    g_task_return_pointer(task, mwb_media_info(), (GDestroyNotify)mwb_media_info_free);
+}
+
+static void
+mwb_media_info_done(GObject *source_object G_GNUC_UNUSED, GAsyncResult *res, gpointer data)
+{
+    MorphosWorkbenchPlugin *mwb = data;
+    MwbMediaInfo *info;
+
+    mwb->vol_media_task = 0;
+    info = g_task_propagate_pointer(G_TASK(res), NULL);
+    mwb_apply_playing(mwb, info);
+    if (info)
+        mwb_media_info_free(info);
+}
+
+static void
+mwb_volume_update_playing(MorphosWorkbenchPlugin *mwb)
+{
+    GTask *task;
+
+    if (!mwb->vol_playing_card)
+        return;
+    if (mwb->vol_media_task)
+        return;
+    mwb->vol_media_task = 1;
+
+    task = g_task_new(NULL, NULL, mwb_media_info_done, mwb);
+    g_task_run_in_thread(task, mwb_media_info_thread);
+    g_object_unref(task);
 }
 
 /* ---- active playback streams (per-app volume) ---- */
@@ -993,13 +1045,71 @@ mwb_stream_app_icon(const gchar *app_name)
     return icon;
 }
 
+static gchar *
+mwb_streams_signature(GList *streams)
+{
+    GString *sig = g_string_new(NULL);
+    for (GList *l = streams; l; l = l->next) {
+        MwbStream *s = l->data;
+        g_string_append_printf(sig, "%u=%s=%s;", s->index,
+                               s->app ? s->app : "", s->media ? s->media : "");
+    }
+    return g_string_free(sig, FALSE);
+}
+
+/* Refresh slider values in place (skip a widget the user is currently dragging). */
 static void
-mwb_streams_rebuild(MorphosWorkbenchPlugin *mwb, GList *streams)
+mwb_streams_update_values(MorphosWorkbenchPlugin *mwb, GList *streams)
 {
     GList *children, *c;
 
     if (!mwb->vol_streams_box)
         return;
+
+    children = gtk_container_get_children(GTK_CONTAINER(mwb->vol_streams_box));
+    for (c = children; c; c = c->next) {
+        GtkWidget *card = GTK_WIDGET(c->data);
+        if (!GTK_IS_CONTAINER(card))
+            continue;
+        GList *inner = gtk_container_get_children(GTK_CONTAINER(card));
+        for (GList *i = inner; i; i = i->next) {
+            GtkWidget *w = GTK_WIDGET(i->data);
+            if (!GTK_IS_SCALE(w) || gtk_widget_has_grab(w))
+                continue;
+            guint index = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(w), "mwb-stream-index"));
+            for (GList *l = streams; l; l = l->next) {
+                MwbStream *s = l->data;
+                if (s->index == index && (guint)gtk_range_get_value(GTK_RANGE(w)) != s->volume) {
+                    g_signal_handlers_block_by_func(w, mwb_stream_volume_changed, mwb);
+                    gtk_range_set_value(GTK_RANGE(w), s->volume);
+                    g_signal_handlers_unblock_by_func(w, mwb_stream_volume_changed, mwb);
+                    break;
+                }
+            }
+        }
+        g_list_free(inner);
+    }
+    g_list_free(children);
+}
+
+static void
+mwb_streams_rebuild(MorphosWorkbenchPlugin *mwb, GList *streams)
+{
+    GList *children, *c;
+    gchar *set_sig;
+
+    if (!mwb->vol_streams_box)
+        return;
+
+    /* same stream set: just refresh slider values, avoid the rebuild churn */
+    set_sig = mwb_streams_signature(streams);
+    if (g_strcmp0(set_sig, mwb->vol_streams_sig) == 0) {
+        mwb_streams_update_values(mwb, streams);
+        g_free(set_sig);
+        return;
+    }
+    g_free(mwb->vol_streams_sig);
+    mwb->vol_streams_sig = set_sig;
 
     children = gtk_container_get_children(GTK_CONTAINER(mwb->vol_streams_box));
     for (c = children; c; c = c->next)
@@ -1178,6 +1288,9 @@ mwb_volume_popup_destroyed(GtkWidget *widget G_GNUC_UNUSED, MorphosWorkbenchPlug
     mwb->vol_playing_next_btn = NULL;
     mwb->vol_playing_play_icon = NULL;
     mwb->vol_streams_box = NULL;
+    mwb->vol_media_task = 0;
+    g_clear_pointer(&mwb->vol_last_art_url, g_free);
+    g_clear_pointer(&mwb->vol_streams_sig, g_free);
 }
 
 static void
