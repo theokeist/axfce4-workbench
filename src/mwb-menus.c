@@ -363,8 +363,7 @@ mwb_build_icons_menu(MorphosWorkbenchPlugin *mwb G_GNUC_UNUSED)
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
     item = mwb_create_menu_item("image-x-generic", _("Next Wallpaper"));
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(mwb_launch),
-                             "xfdesktop --next");
+    g_signal_connect_swapped(item, "activate", G_CALLBACK(mwb_next_wallpaper), NULL);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
     item = mwb_create_menu_item("view-refresh", _("Reload Desktop"));

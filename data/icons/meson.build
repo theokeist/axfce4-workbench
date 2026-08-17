@@ -12,6 +12,8 @@ endforeach
 install_data(
   '16x16/ambient-logo-flat.svg',
   '16x16/ambient-logo-mono.svg',
+  '16x16/ambient-logo-leaf.svg',
+  '16x16/ambient-logo-f.svg',
   install_dir: get_option('datadir') / 'icons' / 'hicolor' / '16x16' / 'apps'
 )
 

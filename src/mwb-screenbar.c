@@ -756,7 +756,7 @@ mwb_playing_set_art(MorphosWorkbenchPlugin *mwb, const gchar *art_url)
     }
 
     if (path) {
-        GdkPixbuf *pb = gdk_pixbuf_new_from_file_at_size(path, 52, 52, NULL);
+        GdkPixbuf *pb = gdk_pixbuf_new_from_file_at_size(path, 64, 64, NULL);
         if (pb) {
             gtk_image_set_from_pixbuf(GTK_IMAGE(mwb->vol_playing_art), pb);
             g_object_unref(pb);
@@ -768,7 +768,7 @@ mwb_playing_set_art(MorphosWorkbenchPlugin *mwb, const gchar *art_url)
 
     gtk_image_set_from_icon_name(GTK_IMAGE(mwb->vol_playing_art),
                                  "audio-x-generic", GTK_ICON_SIZE_DIALOG);
-    gtk_image_set_pixel_size(GTK_IMAGE(mwb->vol_playing_art), 44);
+    gtk_image_set_pixel_size(GTK_IMAGE(mwb->vol_playing_art), 56);
 }
 
 static void
@@ -1295,7 +1295,7 @@ mwb_volume_clicked(GtkButton *button G_GNUC_UNUSED, MorphosWorkbenchPlugin *mwb)
         GtkWidget *art_frame = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
         gtk_style_context_add_class(gtk_widget_get_style_context(art_frame), "mwb-playing-art-frame");
         mwb->vol_playing_art = gtk_image_new();
-        gtk_image_set_pixel_size(GTK_IMAGE(mwb->vol_playing_art), 48);
+        gtk_image_set_pixel_size(GTK_IMAGE(mwb->vol_playing_art), 64);
         gtk_box_pack_start(GTK_BOX(art_frame), mwb->vol_playing_art, FALSE, FALSE, 0);
         gtk_box_pack_start(GTK_BOX(np_top), art_frame, FALSE, FALSE, 0);
 

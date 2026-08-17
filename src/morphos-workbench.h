@@ -96,6 +96,8 @@ typedef enum {
     MWB_LOGO_CLASSIC,
     MWB_LOGO_FLAT,
     MWB_LOGO_MONO,
+    MWB_LOGO_LEAF,
+    MWB_LOGO_F,
     MWB_LOGO_COUNT
 } MorphosWorkbenchLogo;
 
@@ -293,6 +295,7 @@ guint       mwb_launch_tracked          (const gchar *command,
                                          GChildWatchFunc func,
                                          gpointer data);
 void        mwb_desktop_new_folder      (void);
+void        mwb_next_wallpaper          (void);
 GtkWidget  *mwb_screenbar_divider       (void);
 
 /* gauges.c */

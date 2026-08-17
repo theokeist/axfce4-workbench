@@ -23,6 +23,7 @@
 #include "morphos-workbench.h"
 
 #include <glib/gstdio.h>
+#include <string.h>
 
 /* ------------------------------------------------------------------ *
  *  Launch / actions
@@ -97,6 +98,110 @@ mwb_desktop_new_folder(void)
 
     g_free(path);
     g_free(fallback);
+}
+
+static gboolean
+mwb_wallpaper_is_image(const gchar *name)
+{
+    const gchar *ext;
+
+    if (!name)
+        return FALSE;
+    ext = strrchr(name, '.');
+    if (!ext)
+        return FALSE;
+    return g_str_has_suffix(name, ".jpg") || g_str_has_suffix(name, ".jpeg") ||
+           g_str_has_suffix(name, ".png") || g_str_has_suffix(name, ".gif") ||
+           g_str_has_suffix(name, ".webp") || g_str_has_suffix(name, ".bmp") ||
+           g_str_has_suffix(name, ".svg");
+}
+
+/* Cycle the XFCE desktop to the next image in the current backdrop folder. */
+void
+mwb_next_wallpaper(void)
+{
+    gchar *props_out = NULL;
+    gchar *val_out = NULL;
+    gchar *cmd = NULL;
+    gchar **lines = NULL;
+    gchar *prop = NULL;
+    gchar *current = NULL;
+    gchar *current_base = NULL;
+    gchar *dirpath = NULL;
+    GDir *dir = NULL;
+    GList *images = NULL;
+    GList *l;
+    const gchar *name;
+    const gchar *next_name = NULL;
+    gint i;
+
+    if (!g_spawn_command_line_sync("xfconf-query -c xfce4-desktop -l",
+                                   &props_out, NULL, NULL, NULL) || !props_out)
+        return;
+
+    lines = g_strsplit(props_out, "\n", -1);
+    for (i = 0; lines[i]; i++) {
+        g_strstrip(lines[i]);
+        if (g_str_has_suffix(lines[i], "/last-image")) {
+            prop = g_strdup(lines[i]);
+            break;
+        }
+    }
+    g_strfreev(lines);
+    g_free(props_out);
+
+    if (!prop)
+        return;
+
+    cmd = g_strdup_printf("xfconf-query -c xfce4-desktop -p '%s'", prop);
+    if (g_spawn_command_line_sync(cmd, &val_out, NULL, NULL, NULL) && val_out)
+        current = g_strdup(g_strstrip(val_out));
+    g_free(cmd);
+    g_free(val_out);
+
+    if (!current || !*current)
+        goto out;
+
+    dirpath = g_path_get_dirname(current);
+    current_base = g_path_get_basename(current);
+
+    dir = g_dir_open(dirpath, 0, NULL);
+    if (!dir)
+        goto out;
+
+    while ((name = g_dir_read_name(dir)) != NULL) {
+        if (mwb_wallpaper_is_image(name))
+            images = g_list_insert_sorted(images, g_strdup(name),
+                                          (GCompareFunc)g_utf8_collate);
+    }
+
+    for (l = images; l; l = l->next) {
+        if (g_strcmp0((const gchar *)l->data, current_base) == 0) {
+            next_name = l->next ? (const gchar *)l->next->data
+                                : (const gchar *)images->data;
+            break;
+        }
+    }
+    if (!next_name && images)
+        next_name = (const gchar *)images->data;
+
+    if (next_name) {
+        gchar *next_path = g_build_filename(dirpath, next_name, NULL);
+        cmd = g_strdup_printf("xfconf-query -c xfce4-desktop -p '%s' -s '%s'",
+                              prop, next_path);
+        g_spawn_command_line_sync(cmd, NULL, NULL, NULL, NULL);
+        g_free(next_path);
+        g_free(cmd);
+    }
+
+out:
+    if (dir)
+        g_dir_close(dir);
+    g_list_free_full(images, g_free);
+    g_free(current_base);
+    g_free(dirpath);
+    g_free(current);
+    g_free(prop);
 }
 
 GtkWidget *

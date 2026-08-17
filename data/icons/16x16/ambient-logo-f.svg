@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <linearGradient id="fgrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#bfe6ff"/>
+      <stop offset="55%" stop-color="#55a0e8"/>
+      <stop offset="100%" stop-color="#0a2547"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="10.6" fill="#0a2547" opacity="0.35"/>
+  <circle cx="12" cy="12" r="9.8" fill="#16304f" stroke="#07203f" stroke-width="1"/>
+  <path d="M9 6 L15.5 6 L15.5 8 L11.2 8 L11.2 11 L15 11 L15 13 L11.2 13 L11.2 18 L9 18 Z"
+        fill="url(#fgrad)" stroke="#07203f" stroke-width="0.6"/>
+</svg>

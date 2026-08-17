@@ -444,6 +444,8 @@ mwb_configure_plugin(XfcePanelPlugin *plugin, MorphosWorkbenchPlugin *mwb)
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(logo_combo), NULL, _("Classic sphere"));
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(logo_combo), NULL, _("Flat sphere"));
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(logo_combo), NULL, _("Monochrome sphere"));
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(logo_combo), NULL, _("Leaf"));
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(logo_combo), NULL, _("F"));
     gtk_combo_box_set_active(GTK_COMBO_BOX(logo_combo), mwb->logo_variant);
 
     gauge_combo = mwb_settings_combo(box, _("Gauge style:"), _("Visual style of the CPU, memory and disk meters."));
